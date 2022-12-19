@@ -23,6 +23,9 @@ repos:
     hooks:
     -   id: flake8
         language_version: python3
+        args:
+            - "--max-line-length=120"
+            - "--max-complexity=18"
 
 -   repo: https://github.com/asottile/reorder_python_imports
     rev: v2.6.0
