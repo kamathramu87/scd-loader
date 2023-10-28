@@ -132,7 +132,6 @@ def slowly_changing_dimension(
     ).withColumn("orig_valid_until", f.lit(None).cast("timestamp"))
 
     if not initial_load_flag:
-
         df_dates = df_tgt.withColumnRenamed(
             "valid_from", "orig_valid_from"
         ).withColumnRenamed("valid_until", "orig_valid_until")

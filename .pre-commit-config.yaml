@@ -1,52 +1,20 @@
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
 repos:
--   repo: https://github.com/psf/black
-    rev: 22.3.0
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: "v4.5.0"
     hooks:
-    -   id: black
-        args: [--safe]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
 
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.1.3"
     hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-yaml
-    -   id: check-json
-    -   id: check-added-large-files
-    -   id: debug-statements
-        language_version: python3
+      - id: ruff
 
--   repo: https://github.com/PyCQA/flake8
-    rev: 3.9.2
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: "23.9.1"
     hooks:
-    -   id: flake8
-        language_version: python3
-        args:
-            - "--max-line-length=120"
-            - "--max-complexity=18"
-
--   repo: https://github.com/asottile/reorder_python_imports
-    rev: v2.6.0
-    hooks:
-    -   id: reorder-python-imports
-        args: [--application-directories=./scd_loader, --py36-plus]
-
--   repo: https://github.com/asottile/pyupgrade
-    rev: v2.29.0
-    hooks:
-    -   id: pyupgrade
-        args: [--py36-plus]
-
--   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.910
-    hooks:
-    -   id: mypy
-        files: ^src/
-        args: []
-
--   repo: https://github.com/MarcoGorelli/absolufy-imports
-    rev: v0.3.1
-    hooks:
-    -   id: absolufy-imports
+      - id: black
