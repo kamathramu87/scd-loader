@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 import pytest
 from pyspark.sql import SparkSession
-from pyspark.sql.types import BooleanType
-from pyspark.sql.types import LongType
-from pyspark.sql.types import StringType
-from pyspark.sql.types import StructField
-from pyspark.sql.types import StructType
-from pyspark.sql.types import TimestampType
+from pyspark.sql.types import (
+    BooleanType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
 
 @pytest.fixture(scope="session")

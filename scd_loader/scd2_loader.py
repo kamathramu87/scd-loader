@@ -1,20 +1,26 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import pyspark.sql.functions as f
-from helpers.exceptions import EmptyDataException
-from helpers.exceptions import OldDataException
-from pyspark.sql import DataFrame
+from pyspark.sql import SparkSession
 from pyspark.sql.window import Window
+
+from helpers.exceptions import EmptyDataExceptionError, OldDataExceptionError
+
+if TYPE_CHECKING:
+    from pyspark.sql import DataFrame
 
 
 def slowly_changing_dimension(
     df_src: DataFrame,
     df_tgt: DataFrame,
     initial_load_flag: bool,
-    business_keys: list,
+    business_keys: list[str],
     date_column: str,
-    ignore_columns: list = [],
-    non_copy_fields: list = [],
+    ignore_columns: list[str] | None = None,
+    non_copy_fields: list[str] | None = None,
     open_end_date: datetime = datetime(9999, 12, 31),
 ) -> DataFrame:
     """
@@ -100,6 +106,10 @@ def slowly_changing_dimension(
 
     """
 
+    if non_copy_fields is None:
+        non_copy_fields = []
+    if ignore_columns is None:
+        ignore_columns = []
     scd_columns = [
         "valid_from",
         "valid_until",
@@ -110,10 +120,11 @@ def slowly_changing_dimension(
         "row_hash",
     ]
 
-    v_start_date = df_src.agg(f.max(date_column)).first()[0]
+    v_start_date = df_src.agg(f.max(date_column)).first()
+    if v_start_date is None or v_start_date[0] is None:
+        raise EmptyDataExceptionError
 
-    if not v_start_date:
-        raise EmptyDataException("Empty dataframe, exiting scd2 load")
+    v_start_date = v_start_date[0]
 
     df = df_src.drop(*non_copy_fields)
 
@@ -136,14 +147,23 @@ def slowly_changing_dimension(
             "valid_from", "orig_valid_from"
         ).withColumnRenamed("valid_until", "orig_valid_until")
 
+        # spark session builder
+        spark = SparkSession.builder.getOrCreate()
+
         df_tgt_select = df_dates.drop(*scd_columns)
 
-        tgt_max_load_date = (
-            df_tgt.agg(f.max("valid_from").alias("max_date")).first().max_date
-        )
+        tgt_max_load_date_row = df_tgt.agg(
+            f.max("valid_from").alias("max_date")
+        ).first()
+        tgt_max_load_date = None
+        df_tgt_curr = spark.createDataFrame(
+            [], df_tgt_select.schema
+        )  # Initialize with an empty DataFrame
+        if tgt_max_load_date_row is not None:
+            tgt_max_load_date = tgt_max_load_date_row["max_date"]
 
         if v_start_date < tgt_max_load_date:
-            raise OldDataException("Data is older than last target load date")
+            raise OldDataExceptionError
 
         if tgt_max_load_date:
             df_tgt_curr = df_tgt_select.withColumn(
@@ -151,10 +171,10 @@ def slowly_changing_dimension(
             )
 
         df_processing = df_processing.filter(
-            df_processing.snapshot_date > tgt_max_load_date
+            df_processing.snapshot_date > f.lit(tgt_max_load_date)
         ).union(df_tgt_curr.select(df_processing.columns))
 
-    # remove the duplicat records
+    # remove the duplicate records
 
     df_dist = df_processing.distinct()
 
@@ -171,8 +191,11 @@ def slowly_changing_dimension(
 
     # last delivered date
 
+    max_delivered_date_row = df_date_window.agg(
+        f.max(date_column).alias("max_date")
+    ).first()
     max_delivered_date = (
-        df_date_window.agg(f.max(date_column).alias("max_date")).first().max_date
+        max_delivered_date_row.max_date if max_delivered_date_row else None
     )
 
     df_with_dates = (

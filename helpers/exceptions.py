@@ -1,8 +1,11 @@
-class OldDataException(Exception):
-    "Data is older than last target load date"
-    pass
+from __future__ import annotations
 
 
-class EmptyDataException(Exception):
-    "Empty dataframe, exiting scd2 load"
-    pass
+class OldDataExceptionError(Exception):
+    def __init__(self):
+        super().__init__("Data is older than last target load date")
+
+
+class EmptyDataExceptionError(Exception):
+    def __init__(self):
+        super().__init__("Empty dataframe, exiting scd2 load")

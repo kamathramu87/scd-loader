@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 import pytest
 from chispa.dataframe_comparer import assert_df_equality
-from helpers.exceptions import EmptyDataException
-from helpers.exceptions import OldDataException
+
+from helpers.exceptions import EmptyDataExceptionError, OldDataExceptionError
 from scd_loader.scd2_loader import slowly_changing_dimension
 
 
@@ -154,7 +156,7 @@ def test_no_data_exception(
     expected_data_open_end_date,
     expected_data_catchup_one_day,
 ):
-    with pytest.raises(EmptyDataException) as msg:
+    with pytest.raises(EmptyDataExceptionError) as msg:
         slowly_changing_dimension(
             df_src=data_day1.filter("1=0"),
             df_tgt=None,
@@ -176,7 +178,7 @@ def test_old_data_exception(
     expected_data_open_end_date,
     expected_data_catchup_one_day,
 ):
-    with pytest.raises(OldDataException) as msg:
+    with pytest.raises(OldDataExceptionError) as msg:
         slowly_changing_dimension(
             df_src=data_day1,
             df_tgt=expected_data_open_end_date,
