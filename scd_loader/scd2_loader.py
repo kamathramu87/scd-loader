@@ -12,6 +12,8 @@ from helpers.exceptions import EmptyDataExceptionError, OldDataExceptionError
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
 
+OPEN_END_DATE = datetime(9999, 12, 31)
+
 
 def slowly_changing_dimension(
     df_src: DataFrame,
@@ -21,7 +23,7 @@ def slowly_changing_dimension(
     date_column: str,
     ignore_columns: list[str] | None = None,
     non_copy_fields: list[str] | None = None,
-    open_end_date: datetime = datetime(9999, 12, 31),
+    open_end_date: datetime = OPEN_END_DATE,
 ) -> DataFrame:
     """
 
@@ -143,12 +145,11 @@ def slowly_changing_dimension(
     ).withColumn("orig_valid_until", f.lit(None).cast("timestamp"))
 
     if not initial_load_flag:
+        spark = SparkSession.builder.getOrCreate()
+
         df_dates = df_tgt.withColumnRenamed(
             "valid_from", "orig_valid_from"
         ).withColumnRenamed("valid_until", "orig_valid_until")
-
-        # spark session builder
-        spark = SparkSession.builder.getOrCreate()
 
         df_tgt_select = df_dates.drop(*scd_columns)
 
