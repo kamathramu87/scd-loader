@@ -26,6 +26,12 @@ def spark():
 
 
 @pytest.fixture(scope="session")
+def spark_session(spark):
+    """Alias for spark fixture to maintain compatibility with existing tests."""
+    return spark
+
+
+@pytest.fixture(scope="session")
 def scd2_schema():
     target_schema = StructType(
         [

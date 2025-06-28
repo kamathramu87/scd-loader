@@ -3,9 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 
 from helpers.exceptions import EmptyDataExceptionError, OldDataExceptionError
-import pytest 
-from ahub_transformations.loaders.scd2 import SCD2Loader 
+import pytest
 from chispa.dataframe_comparer import assert_df_equality
+
+from scd_loader.scd2_loader import SCD2Loader
+
 
 @pytest.fixture(scope="session")
 def data_day1(spark_session):

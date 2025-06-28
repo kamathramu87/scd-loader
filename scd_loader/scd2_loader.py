@@ -5,12 +5,10 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import pyspark.sql.functions as f
-from ahub_transformations.exceptions import (
-    EmptyDataExceptionError,
-    OldDataExceptionError,
-)
 from pyspark.sql import SparkSession
 from pyspark.sql.window import Window
+
+from helpers.exceptions import EmptyDataExceptionError, OldDataExceptionError
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
@@ -145,7 +143,9 @@ class SCD2Loader:
         if ignore_columns is None:
             ignore_columns = []
 
-        scd2_columns = SCD2Columns.from_dict(scd_columns) if scd_columns else SCD2Columns()
+        scd2_columns = (
+            SCD2Columns.from_dict(scd_columns) if scd_columns else SCD2Columns()
+        )
 
         if df_src.isEmpty():
             raise EmptyDataExceptionError
@@ -158,31 +158,41 @@ class SCD2Loader:
 
         target_columns = source_columns + scd2_columns.field_list() + ["upsert_flag"]
 
-        df_processing = df.withColumn("orig_valid_from", f.lit(None).cast("timestamp")).withColumn(
-            "orig_valid_until", f.lit(None).cast("timestamp")
-        )
+        df_processing = df.withColumn(
+            "orig_valid_from", f.lit(None).cast("timestamp")
+        ).withColumn("orig_valid_until", f.lit(None).cast("timestamp"))
 
         if df_tgt and not df_tgt.isEmpty():
-            df_dates = df_tgt.withColumnRenamed(scd2_columns.valid_from, "orig_valid_from").withColumnRenamed(
-                scd2_columns.valid_until, "orig_valid_until"
-            )
+            df_dates = df_tgt.withColumnRenamed(
+                scd2_columns.valid_from, "orig_valid_from"
+            ).withColumnRenamed(scd2_columns.valid_until, "orig_valid_until")
 
             df_tgt_select = df_dates.drop(*scd2_columns.field_list())
 
-            tgt_max_load_date_row = df_tgt.agg(f.max(scd2_columns.valid_from).alias("max_date")).first()
-            tgt_max_load_date = tgt_max_load_date_row["max_date"] if tgt_max_load_date_row else ""
+            tgt_max_load_date_row = df_tgt.agg(
+                f.max(scd2_columns.valid_from).alias("max_date")
+            ).first()
+            tgt_max_load_date = (
+                tgt_max_load_date_row["max_date"] if tgt_max_load_date_row else ""
+            )
 
-            src_max_load_date_row = df_processing.agg(f.max(date_column).alias("max_date")).first()
-            src_max_load_date = src_max_load_date_row["max_date"] if src_max_load_date_row else ""
+            src_max_load_date_row = df_processing.agg(
+                f.max(date_column).alias("max_date")
+            ).first()
+            src_max_load_date = (
+                src_max_load_date_row["max_date"] if src_max_load_date_row else ""
+            )
 
             if src_max_load_date < tgt_max_load_date:
                 raise OldDataExceptionError
 
-            df_tgt_curr = df_tgt_select.withColumn(date_column, f.lit(tgt_max_load_date))
-
-            df_processing = df_processing.filter(f.col(f"{date_column}") > f.lit(tgt_max_load_date)).union(
-                df_tgt_curr.select(df_processing.columns)
+            df_tgt_curr = df_tgt_select.withColumn(
+                date_column, f.lit(tgt_max_load_date)
             )
+
+            df_processing = df_processing.filter(
+                f.col(f"{date_column}") > f.lit(tgt_max_load_date)
+            ).union(df_tgt_curr.select(df_processing.columns))
 
         # remove the duplicate records
         df_dist = df_processing.distinct()
@@ -200,20 +210,31 @@ class SCD2Loader:
         )
 
         # last delivered date
-        max_delivered_date_row = df_date_window.agg(f.max(f"{date_column}_r").alias("max_date")).first()
-        max_delivered_date = max_delivered_date_row.max_date if max_delivered_date_row else None
+        max_delivered_date_row = df_date_window.agg(
+            f.max(f"{date_column}_r").alias("max_date")
+        ).first()
+        max_delivered_date = (
+            max_delivered_date_row.max_date if max_delivered_date_row else None
+        )
 
         df_with_dates = (
-            df_dist.join(df_date_window, f.col(date_column) == f.col(f"{date_column}_r"), "left")
+            df_dist.join(
+                df_date_window, f.col(date_column) == f.col(f"{date_column}_r"), "left"
+            )
             .withColumn(
                 "date_lead",
-                f.lead(date_column).over(Window.partitionBy(business_keys).orderBy(date_column)),
+                f.lead(date_column).over(
+                    Window.partitionBy(business_keys).orderBy(date_column)
+                ),
             )
             .withColumn(
                 "deleted",
                 f.when(
                     (f.col("next_date_available") != f.col("date_lead"))
-                    | ((f.col("date_lead").isNull()) & (df_dist[date_column] != max_delivered_date)),
+                    | (
+                        (f.col("date_lead").isNull())
+                        & (df_dist[date_column] != max_delivered_date)
+                    ),
                     True,
                 ).otherwise(False),
             )
@@ -235,25 +256,33 @@ class SCD2Loader:
             f.sha2(
                 f.concat_ws(
                     "|",
-                    *[x for x in source_columns if x not in ignore_columns] + ["deleted"],
+                    *[x for x in source_columns if x not in ignore_columns]
+                    + ["deleted"],
                 ),
                 256,
             ),
         ).withColumn(
             scd2_columns.row_hash,
             f.sha2(
-                f.concat_ws("|", *[x for x in source_columns if x not in ignore_columns]),
+                f.concat_ws(
+                    "|", *[x for x in source_columns if x not in ignore_columns]
+                ),
                 256,
             ),
         )
 
-        df_hash_window = df_hashed.withColumn("row_hash_changed_lag", f.lag("row_hash_changed").over(window_func))
+        df_hash_window = df_hashed.withColumn(
+            "row_hash_changed_lag", f.lag("row_hash_changed").over(window_func)
+        )
 
         # filter to keep only changed hash key values
         df_hash_filter: DataFrame = (
             df_hash_window.filter(
                 (df_hash_window.row_hash_changed_lag.isNull())
-                | (df_hash_window.row_hash_changed_lag != df_hash_window.row_hash_changed)
+                | (
+                    df_hash_window.row_hash_changed_lag
+                    != df_hash_window.row_hash_changed
+                )
             )
             .drop("date_lead", "row_hash_changed_lag", "row_hash_changed")
             .withColumn("next_change", f.lead(date_column).over(window_func))
@@ -286,7 +315,8 @@ class SCD2Loader:
             .withColumn(
                 scd2_columns.active_flag,
                 f.when(
-                    (f.col("valid_until").isNull()) | (f.col("valid_until") == open_end_date),
+                    (f.col("valid_until").isNull())
+                    | (f.col("valid_until") == open_end_date),
                     True,
                 ).otherwise(False),
             )
@@ -297,13 +327,18 @@ class SCD2Loader:
             # added code
             .withColumn(
                 scd2_columns.insert_dts,
-                f.when(df_hash_filter.orig_valid_from.isNull(), current_timestamp).otherwise(f.col("orig_valid_from")),
+                f.when(
+                    df_hash_filter.orig_valid_from.isNull(), current_timestamp
+                ).otherwise(f.col("orig_valid_from")),
             )
             .withColumn(scd2_columns.update_dts, current_timestamp)
         )
 
         df_model = df_support_columns.filter(
-            (f.coalesce(df_support_columns.orig_valid_until, f.lit(open_end_date)) != df_support_columns.valid_until)
+            (
+                f.coalesce(df_support_columns.orig_valid_until, f.lit(open_end_date))
+                != df_support_columns.valid_until
+            )
             | (df_support_columns.orig_valid_from.isNull())
         )
 
