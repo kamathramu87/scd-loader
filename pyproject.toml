@@ -8,7 +8,6 @@ packages = [{include = "scd_loader"}]
 
 [tool.poetry.dependencies]
 python = "^3.8.1"
-pyspark = "3.5.0"
 
 
 [tool.poetry.group.dev.dependencies]
