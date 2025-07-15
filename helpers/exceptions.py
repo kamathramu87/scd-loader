@@ -9,3 +9,8 @@ class OldDataExceptionError(Exception):
 class EmptyDataExceptionError(Exception):
     def __init__(self):
         super().__init__("Empty dataframe, exiting scd2 load")
+
+
+class BusinessKeysEmptyError(ValueError):
+    def __init__(self):
+        super().__init__("business_keys cannot be empty")

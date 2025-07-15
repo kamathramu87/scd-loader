@@ -22,6 +22,7 @@ dev = [
     "pytest-cov>=4.0.0,<5",
     "flake8>=6.0.0,<7",
     "deptry==0.23.0",
+    "mypy>=1.5.0,<2",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -88,12 +89,14 @@ select = [
     "RUF",
     # tryceratops
     "TRY",
+
 ]
 ignore = [
     # LineTooLong
     "E501",
     # DoNotAssignLambda
     "E731",
+    "TRY003"
 ]
 extend-exclude = ["tests/*"]
 

@@ -3,13 +3,17 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, fields
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import pyspark.sql.functions as f
 from pyspark.sql import SparkSession
 from pyspark.sql.window import Window
 
-from helpers.exceptions import EmptyDataExceptionError, OldDataExceptionError
+from helpers.exceptions import (
+    BusinessKeysEmptyError,
+    EmptyDataExceptionError,
+    OldDataExceptionError,
+)
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
@@ -53,10 +57,10 @@ class SCD2Config:
 
     business_keys: list[str]
     date_column: str = DEFAULT_DATE_COLUMN
-    ignore_columns: Optional[list[str]] = None
-    non_copy_fields: Optional[list[str]] = None
-    open_end_date: datetime = OPEN_END_DATE
-    scd_columns: Optional[SCD2Columns] = None
+    ignore_columns: list[str] | None = None
+    non_copy_fields: list[str] | None = None
+    open_end_date: datetime | None = OPEN_END_DATE
+    scd_columns: SCD2Columns | None = None
 
     def __post_init__(self) -> None:
         """Initialize default values for optional fields."""
@@ -71,7 +75,7 @@ class SCD2Config:
 class SCD2Loader:
     """Slowly Changing Dimension Type 2 loader for PySpark DataFrames."""
 
-    def __init__(self, spark_session: Optional[SparkSession] = None) -> None:
+    def __init__(self, spark_session: SparkSession | None = None) -> None:
         """Initialize the SCD2 loader with an optional Spark session.
 
         Args:
@@ -89,11 +93,11 @@ class SCD2Loader:
         df_src: DataFrame,
         business_keys: list[str] | str,
         date_column: str = DEFAULT_DATE_COLUMN,
-        df_tgt: Optional[DataFrame] = None,
-        ignore_columns: Optional[list[str]] = None,
-        non_copy_fields: Optional[list[str]] = None,
-        open_end_date: Optional[datetime] = OPEN_END_DATE,
-        scd_columns: Optional[dict[str, str]] = None,
+        df_tgt: DataFrame | None = None,
+        ignore_columns: list[str] | None = None,
+        non_copy_fields: list[str] | None = None,
+        open_end_date: datetime | None = OPEN_END_DATE,
+        scd_columns: dict[str, str] | None = None,
     ) -> DataFrame:
         """Process slowly changing dimension type 2 transformation.
 
@@ -133,14 +137,16 @@ class SCD2Loader:
             date_column=date_column,
             ignore_columns=ignore_columns or [],
             non_copy_fields=non_copy_fields or [],
-            open_end_date=open_end_date or OPEN_END_DATE,
+            open_end_date=open_end_date,
             scd_columns=SCD2Columns.from_dict(scd_columns) if scd_columns else None,
         )
 
         # Process the data
         return self._process_scd2(df_src, df_tgt, config)
 
-    def _validate_inputs(self, df_src: DataFrame, business_keys: list[str] | str, date_column: str) -> None:
+    def _validate_inputs(
+        self, df_src: DataFrame, business_keys: list[str] | str, date_column: str
+    ) -> None:
         """Validate input parameters.
 
         Args:
@@ -157,7 +163,7 @@ class SCD2Loader:
             business_keys = [business_keys]
 
         if not business_keys:
-            raise ValueError("business_keys cannot be empty")
+            raise BusinessKeysEmptyError
 
         if not date_column:
             raise ValueError("date_column cannot be empty")
@@ -167,11 +173,15 @@ class SCD2Loader:
             raise EmptyDataExceptionError
 
         # Check if required columns exist
-        missing_columns = [col for col in business_keys + [date_column] if col not in df_src.columns]
+        missing_columns = [
+            col for col in [*business_keys, date_column] if col not in df_src.columns
+        ]
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
 
-    def _process_scd2(self, df_src: DataFrame, df_tgt: Optional[DataFrame], config: SCD2Config) -> DataFrame:
+    def _process_scd2(
+        self, df_src: DataFrame, df_tgt: DataFrame | None, config: SCD2Config
+    ) -> DataFrame:
         """Main SCD2 processing pipeline.
 
         Args:
@@ -182,6 +192,9 @@ class SCD2Loader:
         Returns:
             Processed DataFrame with SCD2 transformations
         """
+
+        self._update_source_columns(df_src, config)
+
         # Prepare source data
         df_prepared = self._prepare_source_data(df_src, config)
 
@@ -195,6 +208,19 @@ class SCD2Loader:
         logger.info("SCD2 processing completed successfully")
         return df_processed
 
+    def _update_source_columns(self, df_src: DataFrame, config: SCD2Config) -> None:
+        """Update source columns by removing non-copy fields and returning the remaining columns.
+        Args:
+            df_src: Source DataFrame
+            config: SCD2 configuration
+        Returns:
+            List of source columns excluding non-copy fields and date column
+        """
+        df = df_src.drop(*config.non_copy_fields) if config.non_copy_fields else df_src
+        source_columns = df.columns
+        source_columns.remove(config.date_column)
+        self.source_columns = source_columns
+
     def _prepare_source_data(self, df_src: DataFrame, config: SCD2Config) -> DataFrame:
         """Prepare source data by removing non-copy fields and adding SCD2 columns.
 
@@ -205,16 +231,20 @@ class SCD2Loader:
         Returns:
             Prepared DataFrame
         """
-        df_cleaned = df_src.drop(*config.non_copy_fields) if config.non_copy_fields else df_src
+        df_cleaned = (
+            df_src.drop(*config.non_copy_fields) if config.non_copy_fields else df_src
+        )
 
         # Add original SCD2 columns for tracking
-        df_with_orig_columns = df_cleaned.withColumn("orig_valid_from", f.lit(None).cast("timestamp")).withColumn(
-            "orig_valid_until", f.lit(None).cast("timestamp")
-        )
+        df_with_orig_columns = df_cleaned.withColumn(
+            "orig_valid_from", f.lit(None).cast("timestamp")
+        ).withColumn("orig_valid_until", f.lit(None).cast("timestamp"))
 
         return df_with_orig_columns
 
-    def _handle_incremental_load(self, df_src: DataFrame, df_tgt: DataFrame, config: SCD2Config) -> DataFrame:
+    def _handle_incremental_load(
+        self, df_src: DataFrame, df_tgt: DataFrame, config: SCD2Config
+    ) -> DataFrame:
         """Handle incremental load by merging source and target data.
 
         Args:
@@ -235,9 +265,9 @@ class SCD2Loader:
             config.scd_columns = SCD2Columns()
 
         # Rename target columns for processing
-        df_tgt_renamed = df_tgt.withColumnRenamed(config.scd_columns.valid_from, "orig_valid_from").withColumnRenamed(
-            config.scd_columns.valid_until, "orig_valid_until"
-        )
+        df_tgt_renamed = df_tgt.withColumnRenamed(
+            config.scd_columns.valid_from, "orig_valid_from"
+        ).withColumnRenamed(config.scd_columns.valid_until, "orig_valid_until")
 
         # Get target columns excluding SCD2 columns
         df_tgt_select = df_tgt_renamed.drop(*config.scd_columns.field_list())
@@ -248,7 +278,11 @@ class SCD2Loader:
 
         # Validate data freshness
         if src_max_date < tgt_max_date:
-            logger.error(f"Source data ({src_max_date}) is older than target data ({tgt_max_date})")
+            logger.error(
+                "Source data (%s) is older than target data (%s)",
+                src_max_date,
+                tgt_max_date,
+            )
             raise OldDataExceptionError
 
         # Prepare target data for union
@@ -273,7 +307,9 @@ class SCD2Loader:
         max_date_row = df.agg(f.max(date_column).alias("max_date")).first()
         return max_date_row["max_date"] if max_date_row else ""
 
-    def _apply_scd2_transformations(self, df: DataFrame, config: SCD2Config) -> DataFrame:
+    def _apply_scd2_transformations(
+        self, df: DataFrame, config: SCD2Config
+    ) -> DataFrame:
         """Apply all SCD2 transformations to the DataFrame.
 
         Args:
@@ -287,7 +323,9 @@ class SCD2Loader:
         df_distinct = df.distinct()
 
         # Create window function
-        window_func = Window.partitionBy(config.business_keys).orderBy(config.date_column)
+        window_func = Window.partitionBy(config.business_keys).orderBy(
+            config.date_column
+        )
 
         # Process date windows and deletions
         df_with_deletions = self._process_deletions(df_distinct, config)
@@ -318,26 +356,42 @@ class SCD2Loader:
         df_date_window = (
             df.select(config.date_column)
             .distinct()
-            .withColumn("next_date_available", f.lead(config.date_column).over(Window.orderBy(config.date_column)))
+            .withColumn(
+                "next_date_available",
+                f.lead(config.date_column).over(Window.orderBy(config.date_column)),
+            )
             .withColumnRenamed(config.date_column, f"{config.date_column}_r")
         )
 
         # Get max delivered date
-        max_delivered_date_row = df_date_window.agg(f.max(f"{config.date_column}_r").alias("max_date")).first()
-        max_delivered_date = max_delivered_date_row.max_date if max_delivered_date_row else None
+        max_delivered_date_row = df_date_window.agg(
+            f.max(f"{config.date_column}_r").alias("max_date")
+        ).first()
+        max_delivered_date = (
+            max_delivered_date_row.max_date if max_delivered_date_row else None
+        )
 
         # Join and identify deletions
         df_with_dates = (
-            df.join(df_date_window, f.col(config.date_column) == f.col(f"{config.date_column}_r"), "left")
+            df.join(
+                df_date_window,
+                f.col(config.date_column) == f.col(f"{config.date_column}_r"),
+                "left",
+            )
             .withColumn(
                 "date_lead",
-                f.lead(config.date_column).over(Window.partitionBy(config.business_keys).orderBy(config.date_column)),
+                f.lead(config.date_column).over(
+                    Window.partitionBy(config.business_keys).orderBy(config.date_column)
+                ),
             )
             .withColumn(
                 "deleted",
                 f.when(
                     (f.col("next_date_available") != f.col("date_lead"))
-                    | ((f.col("date_lead").isNull()) & (df[config.date_column] != max_delivered_date)),
+                    | (
+                        (f.col("date_lead").isNull())
+                        & (df[config.date_column] != max_delivered_date)
+                    ),
                     True,
                 ).otherwise(False),
             )
@@ -357,7 +411,9 @@ class SCD2Loader:
 
         return df_with_delete_periods
 
-    def _apply_hash_transformations(self, df: DataFrame, config: SCD2Config) -> DataFrame:
+    def _apply_hash_transformations(
+        self, df: DataFrame, config: SCD2Config
+    ) -> DataFrame:
         """Apply hash transformations to identify changes.
 
         Args:
@@ -367,12 +423,6 @@ class SCD2Loader:
         Returns:
             DataFrame with hash columns added
         """
-        # Ensure scd_columns is not None
-        if config.scd_columns is None:
-            config.scd_columns = SCD2Columns()
-
-        source_columns = [col for col in df.columns if col not in ["orig_valid_from", "orig_valid_until"]]
-        source_columns.remove(config.date_column)
 
         # Create hash for change detection (includes deleted flag)
         df_with_change_hash = df.withColumn(
@@ -380,7 +430,12 @@ class SCD2Loader:
             f.sha2(
                 f.concat_ws(
                     HASH_SEPARATOR,
-                    *[col for col in source_columns if col not in (config.ignore_columns or [])] + ["deleted"],
+                    *[
+                        col
+                        for col in self.source_columns
+                        if col not in (config.ignore_columns or [])
+                    ]
+                    + ["deleted"],
                 ),
                 256,
             ),
@@ -391,7 +446,12 @@ class SCD2Loader:
             config.scd_columns.row_hash,
             f.sha2(
                 f.concat_ws(
-                    HASH_SEPARATOR, *[col for col in source_columns if col not in (config.ignore_columns or [])]
+                    HASH_SEPARATOR,
+                    *[
+                        col
+                        for col in self.source_columns
+                        if col not in (config.ignore_columns or [])
+                    ],
                 ),
                 256,
             ),
@@ -409,7 +469,9 @@ class SCD2Loader:
         Returns:
             DataFrame with only changed records
         """
-        df_with_lag = df.withColumn("row_hash_changed_lag", f.lag("row_hash_changed").over(window_func))
+        df_with_lag = df.withColumn(
+            "row_hash_changed_lag", f.lag("row_hash_changed").over(window_func)
+        )
 
         df_filtered = (
             df_with_lag.filter(
@@ -437,24 +499,39 @@ class SCD2Loader:
         if config.scd_columns is None:
             config.scd_columns = SCD2Columns()
 
-        current_timestamp = f.current_timestamp()
+        f.current_timestamp()
 
         df_with_support = (
             df.filter(~f.col("deleted"))
             .withColumn(
                 config.scd_columns.valid_from,
-                f.coalesce(df.orig_valid_from, f.col(config.date_column).cast("timestamp")),
+                f.coalesce(
+                    df.orig_valid_from, f.col(config.date_column).cast("timestamp")
+                ),
             )
-            .withColumn(config.date_column, f.coalesce(df.orig_valid_from, f.col(config.date_column)))
-            .withColumn(config.scd_columns.valid_until, f.coalesce(df.next_change, f.lit(config.open_end_date)))
-            .withColumn(config.scd_columns.delete_flag, f.coalesce(df.delete_flag, f.lit(False)))
+            .withColumn(
+                config.date_column,
+                f.coalesce(df.orig_valid_from, f.col(config.date_column)),
+            )
+            .withColumn(
+                config.scd_columns.valid_until,
+                f.coalesce(df.next_change, f.lit(config.open_end_date)),
+            )
+            .withColumn(
+                config.scd_columns.delete_flag, f.coalesce(df.delete_flag, f.lit(False))
+            )
             .withColumn(
                 config.scd_columns.active_flag,
                 f.when(
-                    (f.col("valid_until").isNull()) | (f.col("valid_until") == config.open_end_date), True
+                    (f.col("valid_until").isNull())
+                    | (f.col("valid_until") == config.open_end_date),
+                    True,
                 ).otherwise(False),
             )
-            .withColumn(UPSERT_FLAG_COLUMN, f.when(df.orig_valid_from.isNull(), "I").otherwise("U"))
+            .withColumn(
+                UPSERT_FLAG_COLUMN,
+                f.when(df.orig_valid_from.isNull(), "I").otherwise("U"),
+            )
         )
 
         return df_with_support
@@ -478,15 +555,26 @@ class SCD2Loader:
             col
             for col in df.columns
             if col
-            not in config.scd_columns.field_list() + ["orig_valid_from", "orig_valid_until", "next_change", "deleted"]
+            not in [
+                *config.scd_columns.field_list(),
+                "orig_valid_from",
+                "orig_valid_until",
+                "next_change",
+                "deleted",
+            ]
         ]
 
         # Define target columns
-        target_columns = source_columns + config.scd_columns.field_list() + [UPSERT_FLAG_COLUMN]
+        target_columns = (
+            source_columns + config.scd_columns.field_list() + [UPSERT_FLAG_COLUMN]
+        )
 
         # Filter for records that need to be inserted or updated
         df_filtered = df.filter(
-            (f.coalesce(df.orig_valid_until, f.lit(config.open_end_date)) != df.valid_until)
+            (
+                f.coalesce(df.orig_valid_until, f.lit(config.open_end_date))
+                != df.valid_until
+            )
             | (df.orig_valid_from.isNull())
         )
 
