@@ -89,6 +89,8 @@ class TestSCD2Load:
             business_keys=primary_key,
             open_end_date=None,
         )
+        expected_data_null_end_date.show()
+        output_df.select(expected_data_null_end_date.columns).show()
         assert_df_equality(
             expected_data_null_end_date,
             output_df.select(expected_data_null_end_date.columns),
