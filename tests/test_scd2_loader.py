@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from helpers.exceptions import EmptyDataExceptionError, OldDataExceptionError
+from scd_loader.exceptions import EmptyDataExceptionError, OldDataExceptionError
 import pytest
 from chispa.dataframe_comparer import assert_df_equality
 
