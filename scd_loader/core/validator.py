@@ -3,12 +3,17 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from scd_loader.core.config import SCD2Config
-from scd_loader.exceptions import BusinessKeysEmptyError, EmptyDataExceptionError, OldDataExceptionError
+from scd_loader.exceptions import (
+    BusinessKeysEmptyError,
+    EmptyDataExceptionError,
+    OldDataExceptionError,
+)
 from scd_loader.services.date_service import DateService
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
+
+    from scd_loader.core.config import SCD2Config
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +22,9 @@ class SCD2Validator:
     """Validator for SCD2 processing inputs and data."""
 
     @staticmethod
-    def validate_inputs(df_src: DataFrame, business_keys: list[str], date_column: str) -> None:
+    def validate_inputs(
+        df_src: DataFrame, business_keys: list[str], date_column: str
+    ) -> None:
         """Validate input parameters.
 
         Args:
@@ -41,7 +48,9 @@ class SCD2Validator:
             raise EmptyDataExceptionError
 
         # Check if required columns exist
-        missing_columns = [col for col in [*business_keys, date_column] if col not in df_src.columns]
+        missing_columns = [
+            col for col in [*business_keys, date_column] if col not in df_src.columns
+        ]
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
 
@@ -65,7 +74,9 @@ class SCD2Validator:
             raise ValueError("scd_columns configuration is required")
 
     @staticmethod
-    def validate_data_freshness(df_src: DataFrame, df_tgt: DataFrame, config: SCD2Config) -> None:
+    def validate_data_freshness(
+        df_src: DataFrame, df_tgt: DataFrame, config: SCD2Config
+    ) -> None:
         """Validate that source data is not older than target data.
 
         Args:

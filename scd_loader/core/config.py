@@ -21,6 +21,7 @@ class SCD2Columns:
     active_flag: str = "active_flag"
     delete_flag: str = "delete_flag"
     row_hash: str = "row_hash"
+    latest_record_flag: str = "latest_record_flag"
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SCD2Columns:
@@ -33,6 +34,10 @@ class SCD2Columns:
         """Get list of all field names."""
         return [f.name for f in fields(self)]
 
+    def column_list(self) -> list[str]:
+        """Get list of all column values."""
+        return [getattr(self, f.name) for f in fields(self)]
+
 
 @dataclass
 class SCD2Config:
@@ -44,6 +49,7 @@ class SCD2Config:
     non_copy_fields: list[str] | None = None
     open_end_date: datetime | None = OPEN_END_DATE
     scd_columns: SCD2Columns | None = None
+    enable_latest_record_flag: bool = False
 
     def __post_init__(self) -> None:
         """Initialize default values for optional fields."""
@@ -63,6 +69,7 @@ class SCD2Config:
         non_copy_fields: list[str] | None = None,
         open_end_date: datetime | None = OPEN_END_DATE,
         scd_columns: dict[str, str] | None = None,
+        enable_latest_record_flag: bool = False,
     ) -> SCD2Config:
         """Factory method to create SCD2Config with proper validation."""
         if isinstance(business_keys, str):
@@ -75,4 +82,5 @@ class SCD2Config:
             non_copy_fields=non_copy_fields or [],
             open_end_date=open_end_date,
             scd_columns=SCD2Columns.from_dict(scd_columns) if scd_columns else None,
+            enable_latest_record_flag=enable_latest_record_flag,
         )

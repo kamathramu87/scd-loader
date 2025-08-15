@@ -24,7 +24,9 @@ class SCD2Processor:
         """Initialize the SCD2 processor."""
         self.source_columns: list[str] = []
 
-    def process(self, df_src: DataFrame, df_tgt: DataFrame | None, config: SCD2Config) -> DataFrame:
+    def process(
+        self, df_src: DataFrame, df_tgt: DataFrame | None, config: SCD2Config
+    ) -> DataFrame:
         """Main SCD2 processing pipeline.
 
         Args:
@@ -49,7 +51,9 @@ class SCD2Processor:
 
         # Handle incremental load if target exists
         if df_tgt and not df_tgt.isEmpty():
-            df_prepared = DataService.handle_incremental_load(df_prepared, df_tgt, config)
+            df_prepared = DataService.handle_incremental_load(
+                df_prepared, df_tgt, config
+            )
 
         # Process SCD2 transformations
         df_processed = self._apply_scd2_transformations(df_prepared, config)
@@ -70,7 +74,9 @@ class SCD2Processor:
             source_columns.remove(config.date_column)
         self.source_columns = source_columns
 
-    def _apply_scd2_transformations(self, df: DataFrame, config: SCD2Config) -> DataFrame:
+    def _apply_scd2_transformations(
+        self, df: DataFrame, config: SCD2Config
+    ) -> DataFrame:
         """Apply all SCD2 transformations to the DataFrame.
 
         Args:
@@ -84,13 +90,17 @@ class SCD2Processor:
         df_distinct = df.distinct()
 
         # Create window function
-        window_func = Window.partitionBy(config.business_keys).orderBy(config.date_column)
+        window_func = Window.partitionBy(config.business_keys).orderBy(
+            config.date_column
+        )
 
         # Process date windows and deletions
         df_with_deletions = DataService.process_deletions(df_distinct, config)
 
         # Apply hash transformations
-        df_hashed = HashService.apply_hash_transformations(df_with_deletions, config, self.source_columns)
+        df_hashed = HashService.apply_hash_transformations(
+            df_with_deletions, config, self.source_columns
+        )
 
         # Filter for changes
         df_changes = DataService.filter_for_changes(df_hashed, window_func)
