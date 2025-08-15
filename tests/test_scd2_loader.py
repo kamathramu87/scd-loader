@@ -164,3 +164,259 @@ class TestSCD2Load:
                 business_keys=primary_key,
             )
         assert str(msg.value) == "Data is older than last target load date"
+
+
+class TestActiveIndFeature:
+    """Test cases for the latest_record_flag feature."""
+
+    def test_latest_record_flag_disabled_by_default(
+        self, data_day1, data_day2, primary_key, date_attribute
+    ):
+        """Test that latest_record_flag is disabled by default."""
+        scd = SCD2Loader()
+        output_df = scd.slowly_changing_dimension(
+            df_src=data_day1.union(data_day2),
+            date_column=date_attribute,
+            business_keys=primary_key,
+        )
+
+        # latest_record_flag column should not be present
+        assert "latest_record_flag" not in output_df.columns
+
+    def test_latest_record_flag_enabled_column_present(
+        self, data_day1, data_day2, primary_key, date_attribute
+    ):
+        """Test that latest_record_flag column is present when enabled."""
+        scd = SCD2Loader()
+        output_df = scd.slowly_changing_dimension(
+            df_src=data_day1.union(data_day2),
+            date_column=date_attribute,
+            business_keys=primary_key,
+            enable_latest_record_flag=True,
+        )
+
+        # latest_record_flag column should be present
+        assert "latest_record_flag" in output_df.columns
+
+    def test_latest_record_flag_single_business_key(self, spark_session):
+        """Test latest_record_flag with single business key scenario."""
+        # Create test data with multiple records for same business key
+        data = [
+            {
+                "customer_id": 1,
+                "status": "Active",
+                "snapshot_date": datetime(2022, 1, 1),
+            },
+            {
+                "customer_id": 1,
+                "status": "Inactive",
+                "snapshot_date": datetime(2022, 2, 1),
+            },
+            {
+                "customer_id": 1,
+                "status": "Active",
+                "snapshot_date": datetime(2022, 3, 1),
+            },
+            {
+                "customer_id": 1,
+                "status": "Suspended",
+                "snapshot_date": datetime(2022, 4, 1),
+            },
+        ]
+        df_src = spark_session.createDataFrame(data)
+
+        scd = SCD2Loader()
+        output_df = scd.slowly_changing_dimension(
+            df_src=df_src,
+            business_keys=["customer_id"],
+            date_column="snapshot_date",
+            enable_latest_record_flag=True,
+        )
+
+        # Should have exactly one record with latest_record_flag=True (the latest one)
+        latest_record_flag_true_count = output_df.filter(
+            "latest_record_flag = true"
+        ).count()
+        assert latest_record_flag_true_count == 1
+
+        # The latest record should have latest_record_flag=True
+        latest_record = output_df.filter("latest_record_flag = true").collect()[0]
+        assert latest_record["status"] == "Suspended"
+        assert latest_record["snapshot_date"] == datetime(2022, 4, 1)
+
+    def test_latest_record_flag_multiple_business_keys(self, spark_session):
+        """Test latest_record_flag with multiple business keys."""
+        data = [
+            {
+                "customer_id": 1,
+                "status": "Active",
+                "snapshot_date": datetime(2022, 1, 1),
+            },
+            {
+                "customer_id": 1,
+                "status": "Inactive",
+                "snapshot_date": datetime(2022, 2, 1),
+            },
+            {
+                "customer_id": 2,
+                "status": "Active",
+                "snapshot_date": datetime(2022, 1, 1),
+            },
+            {
+                "customer_id": 2,
+                "status": "Premium",
+                "snapshot_date": datetime(2022, 3, 1),
+            },
+            {"customer_id": 3, "status": "New", "snapshot_date": datetime(2022, 2, 1)},
+        ]
+        df_src = spark_session.createDataFrame(data)
+
+        scd = SCD2Loader()
+        output_df = scd.slowly_changing_dimension(
+            df_src=df_src,
+            business_keys=["customer_id"],
+            date_column="snapshot_date",
+            enable_latest_record_flag=True,
+        )
+
+        # Should have exactly one record with latest_record_flag=True per customer
+        latest_record_flag_counts = (
+            output_df.filter("latest_record_flag = true").groupBy("customer_id").count()
+        )
+        collected_counts = latest_record_flag_counts.collect()
+
+        # Each customer should have exactly 1 latest_record_flag=True record
+        assert len(collected_counts) == 3
+        for row in collected_counts:
+            assert row["count"] == 1
+
+    def test_latest_record_flag_vs_active_flag_difference(self, spark_session):
+        """Test that latest_record_flag and active_flag work independently."""
+        # Create data where latest record has ended (not active)
+        data = [
+            {
+                "customer_id": 1,
+                "status": "Active",
+                "snapshot_date": datetime(2022, 1, 1),
+            },
+            {
+                "customer_id": 1,
+                "status": "Inactive",
+                "snapshot_date": datetime(2022, 2, 1),
+            },
+            {
+                "customer_id": 1,
+                "status": "Closed",
+                "snapshot_date": datetime(2022, 3, 1),
+            },  # Latest but ended
+            {
+                "customer_id": 1,
+                "status": "Deleted",
+                "snapshot_date": datetime(2022, 4, 1),
+            },  # Latest
+        ]
+        df_src = spark_session.createDataFrame(data)
+
+        scd = SCD2Loader()
+        output_df = scd.slowly_changing_dimension(
+            df_src=df_src,
+            business_keys=["customer_id"],
+            date_column="snapshot_date",
+            enable_latest_record_flag=True,
+        )
+
+        # Get the record with latest_record_flag=True
+        latest_record_flag_record = output_df.filter(
+            "latest_record_flag = true"
+        ).collect()[0]
+
+        # The latest record should have latest_record_flag=True but active_flag=True (it's the open record)
+        assert latest_record_flag_record["latest_record_flag"] == True
+        assert (
+            latest_record_flag_record["active_flag"] == True
+        )  # Should be True since it's the open record
+        assert latest_record_flag_record["status"] == "Deleted"
+
+    def test_latest_record_flag_with_custom_column_name(
+        self, data_day1, data_day2, primary_key, date_attribute
+    ):
+        """Test latest_record_flag with custom column name."""
+        scd = SCD2Loader()
+        output_df = scd.slowly_changing_dimension(
+            df_src=data_day1.union(data_day2),
+            date_column=date_attribute,
+            business_keys=primary_key,
+            enable_latest_record_flag=True,
+            scd_columns={"latest_record_flag": "latest_record_flag"},
+        )
+
+        # Custom column name should be present
+        assert "latest_record_flag" in output_df.columns
+        assert "latest_record_flag" not in output_df.columns
+
+    def test_latest_record_flag_with_composite_business_key(self, spark_session):
+        """Test latest_record_flag with composite business keys."""
+        data = [
+            {
+                "region": "US",
+                "product": "A",
+                "version": 1,
+                "snapshot_date": datetime(2022, 1, 1),
+            },
+            {
+                "region": "US",
+                "product": "A",
+                "version": 2,
+                "snapshot_date": datetime(2022, 2, 1),
+            },
+            {
+                "region": "US",
+                "product": "B",
+                "version": 1,
+                "snapshot_date": datetime(2022, 1, 1),
+            },
+            {
+                "region": "EU",
+                "product": "A",
+                "version": 1,
+                "snapshot_date": datetime(2022, 1, 1),
+            },
+            {
+                "region": "EU",
+                "product": "A",
+                "version": 2,
+                "snapshot_date": datetime(2022, 3, 1),
+            },
+        ]
+        df_src = spark_session.createDataFrame(data)
+
+        scd = SCD2Loader()
+        output_df = scd.slowly_changing_dimension(
+            df_src=df_src,
+            business_keys=["region", "product"],
+            date_column="snapshot_date",
+            enable_latest_record_flag=True,
+        )
+
+        # Should have one latest_record_flag=True per region-product combination
+        latest_record_flag_counts = (
+            output_df.filter("latest_record_flag = true")
+            .groupBy("region", "product")
+            .count()
+        )
+        collected_counts = latest_record_flag_counts.collect()
+
+        # Should have 3 unique region-product combinations
+        assert len(collected_counts) == 3
+        for row in collected_counts:
+            assert row["count"] == 1
+
+        # Verify the latest records are correctly identified
+        latest_records = output_df.filter("latest_record_flag = true").collect()
+        latest_versions = {
+            (row["region"], row["product"]): row["version"] for row in latest_records
+        }
+
+        assert latest_versions[("US", "A")] == 2  # Latest version for US-A
+        assert latest_versions[("US", "B")] == 1  # Only version for US-B
+        assert latest_versions[("EU", "A")] == 2  # Latest version for EU-A
