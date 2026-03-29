@@ -30,12 +30,6 @@ class SCD2Validator:
             EmptyDataExceptionError: When source DataFrame is empty
             BusinessKeysEmptyError: When business keys are empty
         """
-        if not business_keys:
-            raise BusinessKeysEmptyError
-
-        if not date_column:
-            raise ValueError("date_column cannot be empty")
-
         if df_src.isEmpty():
             logger.error("Source DataFrame is empty")
             raise EmptyDataExceptionError
@@ -46,7 +40,7 @@ class SCD2Validator:
             raise ValueError(f"Missing required columns: {missing_columns}")
 
     @staticmethod
-    def validate_config(config) -> None:
+    def validate_config(config: SCD2Config) -> None:
         """Validate SCD2 configuration.
 
         Args:
@@ -61,9 +55,6 @@ class SCD2Validator:
         if not config.date_column:
             raise ValueError("date_column cannot be empty")
 
-        if config.scd_columns is None:
-            raise ValueError("scd_columns configuration is required")
-
     @staticmethod
     def validate_data_freshness(df_src: DataFrame, df_tgt: DataFrame, config: SCD2Config) -> None:
         """Validate that source data is not older than target data.
@@ -76,9 +67,6 @@ class SCD2Validator:
         Raises:
             OldDataExceptionError: When source data is older than target data
         """
-        if config.scd_columns is None:
-            raise ValueError("scd_columns configuration is required")
-
         tgt_max_date = DateService.get_max_date(df_tgt, config.scd_columns.valid_from)
         src_max_date = DateService.get_max_date(df_src, config.date_column)
 

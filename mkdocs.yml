@@ -1,2 +1,30 @@
-site_name: scd
-theme: readthedocs
+site_name: scd-loader
+theme:
+  name: material
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_signature_annotations: true
+            members_order: source
+
+nav:
+  - Home: index.md
+  - API Reference:
+      - SCD2Loader: api/scd2_loader.md
+      - Core:
+          - Config: api/core/config.md
+          - Processor: api/core/processor.md
+          - Validator: api/core/validator.md
+      - Services:
+          - DataService: api/services/data_service.md
+          - HashService: api/services/hash_service.md
+          - DateService: api/services/date_service.md
+      - Exceptions: api/exceptions.md

@@ -93,7 +93,7 @@ class SCD2Processor:
         df_hashed = HashService.apply_hash_transformations(df_with_deletions, config, self.source_columns)
 
         # Filter for changes
-        df_changes = DataService.filter_for_changes(df_hashed, window_func)
+        df_changes = DataService.filter_for_changes(df_hashed, config, window_func)
 
         # Add SCD2 support columns
         df_with_support = DataService.add_support_columns(df_changes, config)

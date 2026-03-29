@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pyspark.sql.functions as f
 
-from scd_loader.core.config import HASH_SEPARATOR
+from scd_loader.core.config import COL_DELETED, COL_ROW_HASH_CHANGED, HASH_SEPARATOR
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
@@ -27,16 +27,13 @@ class HashService:
         Returns:
             DataFrame with hash columns added
         """
-        if config.scd_columns is None:
-            raise ValueError("scd_columns configuration is required")
-
         # Create hash for change detection (includes deleted flag)
         df_with_change_hash = df.withColumn(
-            "row_hash_changed",
+            COL_ROW_HASH_CHANGED,
             f.sha2(
                 f.concat_ws(
                     HASH_SEPARATOR,
-                    *[col for col in source_columns if col not in (config.ignore_columns or [])] + ["deleted"],
+                    *[col for col in source_columns if col not in (config.ignore_columns or [])] + [COL_DELETED],
                 ),
                 256,
             ),

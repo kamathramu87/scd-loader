@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from scd_loader.core.config import DEFAULT_DATE_COLUMN, OPEN_END_DATE, SCD2Config
+from scd_loader.core.config import DEFAULT_DATE_COLUMN, OPEN_END_DATE, SCD2Columns, SCD2Config
 from scd_loader.core.processor import SCD2Processor
 from scd_loader.utils.spark_factory import SparkSessionFactory
 
@@ -41,7 +41,7 @@ class SCD2Loader:
         ignore_columns: list[str] | None = None,
         non_copy_fields: list[str] | None = None,
         open_end_date: datetime | None = OPEN_END_DATE,
-        scd_columns: dict[str, str] | None = None,
+        scd_columns: SCD2Columns | dict[str, str] | None = None,
     ) -> DataFrame:
         """Process slowly changing dimension type 2 transformation.
 
@@ -56,7 +56,10 @@ class SCD2Loader:
             ignore_columns: Columns to ignore when calculating row hashes
             non_copy_fields: Fields to exclude from source to target
             open_end_date: Date to use for active records (default: 9999-12-31)
-            scd_columns: Custom SCD2 column name mappings
+            scd_columns: Override default SCD2 output column names. Accepts an
+                `SCD2Columns` instance (recommended, full IDE type hints) or a plain
+                dict with any subset of keys: `valid_from`, `valid_until`,
+                `active_flag`, `delete_flag`, `row_hash`.
 
         Returns:
             DataFrame with SCD2 columns and transformations applied

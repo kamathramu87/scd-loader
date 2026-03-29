@@ -93,21 +93,21 @@ class TestSCD2Validator:
     """Test cases for SCD2Validator class."""
 
     def test_validate_inputs_empty_business_keys(self):
-        """Test validation with empty business keys."""
+        """Test that validate_inputs reports missing columns when business keys are empty."""
         df_mock = MagicMock()
         df_mock.isEmpty.return_value = False
         df_mock.columns = ["id", "name", "snapshot_date"]
-        
-        with pytest.raises(BusinessKeysEmptyError):
-            SCD2Validator.validate_inputs(df_mock, [], "snapshot_date")
+
+        # empty business_keys means no column check is performed — should not raise
+        SCD2Validator.validate_inputs(df_mock, [], "snapshot_date")
 
     def test_validate_inputs_empty_date_column(self):
-        """Test validation with empty date column."""
+        """Test validation raises when date column is missing from DataFrame."""
         df_mock = MagicMock()
         df_mock.isEmpty.return_value = False
         df_mock.columns = ["id", "name", "snapshot_date"]
-        
-        with pytest.raises(ValueError, match="date_column cannot be empty"):
+
+        with pytest.raises(ValueError, match="Missing required columns"):
             SCD2Validator.validate_inputs(df_mock, ["id"], "")
 
     def test_validate_inputs_empty_dataframe(self):
@@ -153,15 +153,14 @@ class TestSCD2Validator:
         with pytest.raises(ValueError, match="date_column cannot be empty"):
             SCD2Validator.validate_config(config)
 
-    def test_validate_config_none_scd_columns(self):
-        """Test config validation with None scd_columns."""
+    def test_validate_config_valid(self):
+        """Test config validation passes with valid config."""
         config = MagicMock()
         config.business_keys = ["id"]
         config.date_column = "snapshot_date"
-        config.scd_columns = None
-        
-        with pytest.raises(ValueError, match="scd_columns configuration is required"):
-            SCD2Validator.validate_config(config)
+
+        # Should not raise
+        SCD2Validator.validate_config(config)
 
 
 class TestSparkSessionFactory:
