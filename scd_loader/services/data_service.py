@@ -154,7 +154,33 @@ class DataService:
             )
         )
 
+        if config.enable_latest_record_flag:
+            df_with_support = DataService._add_latest_record_flag(df_with_support, config)
+
         return df_with_support
+
+    @staticmethod
+    def _add_latest_record_flag(df: DataFrame, config: SCD2Config) -> DataFrame:
+        """Add latest_record_flag column — True for the most recent record per business key.
+
+        Args:
+            df: Input DataFrame with SCD2 columns
+            config: SCD2 configuration
+
+        Returns:
+            DataFrame with latest_record_flag column added
+        """
+        window_spec = Window.partitionBy(config.business_keys).orderBy(
+            f.col(config.scd_columns.valid_from).desc()
+        )
+        return (
+            df.withColumn("_row_num", f.row_number().over(window_spec))
+            .withColumn(
+                config.scd_columns.latest_record_flag,
+                f.when(f.col("_row_num") == 1, True).otherwise(False),
+            )
+            .drop("_row_num")
+        )
 
     @staticmethod
     def process_deletions(df: DataFrame, config: SCD2Config) -> DataFrame:
@@ -234,7 +260,7 @@ class DataService:
             for col in df.columns
             if col
             not in [
-                *config.scd_columns.field_list(),
+                *config.scd_columns.column_list(),
                 COL_ORIG_VALID_FROM,
                 COL_ORIG_VALID_UNTIL,
                 COL_NEXT_CHANGE,
@@ -243,8 +269,13 @@ class DataService:
             ]
         ]
 
-        # Define target columns
-        target_columns = source_columns + config.scd_columns.field_list() + [UPSERT_FLAG_COLUMN]
+        # Build SCD2 column list — exclude latest_record_flag when feature is disabled
+        scd_output_columns = [
+            col for col in config.scd_columns.column_list()
+            if config.enable_latest_record_flag or col != config.scd_columns.latest_record_flag
+        ]
+
+        target_columns = source_columns + scd_output_columns + [UPSERT_FLAG_COLUMN]
 
         # Filter for records that need to be inserted or updated
         df_filtered = df.filter(

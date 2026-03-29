@@ -42,6 +42,7 @@ class SCD2Loader:
         non_copy_fields: list[str] | None = None,
         open_end_date: datetime | None = OPEN_END_DATE,
         scd_columns: SCD2Columns | dict[str, str] | None = None,
+        enable_latest_record_flag: bool = False,
     ) -> DataFrame:
         """Process slowly changing dimension type 2 transformation.
 
@@ -60,6 +61,8 @@ class SCD2Loader:
                 `SCD2Columns` instance (recommended, full IDE type hints) or a plain
                 dict with any subset of keys: `valid_from`, `valid_until`,
                 `active_flag`, `delete_flag`, `row_hash`.
+            enable_latest_record_flag: When `True`, adds a `latest_record_flag` column
+                that is `True` for the most recent record per business key.
 
         Returns:
             DataFrame with SCD2 columns and transformations applied
@@ -77,6 +80,7 @@ class SCD2Loader:
             non_copy_fields=non_copy_fields,
             open_end_date=open_end_date,
             scd_columns=scd_columns,
+            enable_latest_record_flag=enable_latest_record_flag,
         )
 
         # Process the data using the processor

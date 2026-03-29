@@ -48,6 +48,8 @@ class SCD2Columns:
     """`True` if the record was deleted in the source."""
     row_hash: str = "row_hash"
     """SHA-256 hash of non-key columns, used for change detection."""
+    latest_record_flag: str = "latest_record_flag"
+    """`True` for the most recent record per business key. Only present when `enable_latest_record_flag=True`."""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SCD2Columns:
@@ -57,8 +59,12 @@ class SCD2Columns:
         return cls(**filtered_data)
 
     def field_list(self) -> list[str]:
-        """Get list of all field names."""
+        """Get list of all field attribute names."""
         return [f.name for f in fields(self)]
+
+    def column_list(self) -> list[str]:
+        """Get list of all actual output column names (respects user-defined renames)."""
+        return [getattr(self, f.name) for f in fields(self)]
 
 
 @dataclass
@@ -71,6 +77,7 @@ class SCD2Config:
     non_copy_fields: list[str] | None = None
     open_end_date: datetime | None = OPEN_END_DATE
     scd_columns: SCD2Columns = field(default_factory=SCD2Columns)
+    enable_latest_record_flag: bool = False
 
     def __post_init__(self) -> None:
         """Initialize default values for optional fields."""
@@ -88,6 +95,7 @@ class SCD2Config:
         non_copy_fields: list[str] | None = None,
         open_end_date: datetime | None = OPEN_END_DATE,
         scd_columns: SCD2Columns | dict[str, str] | None = None,
+        enable_latest_record_flag: bool = False,
     ) -> SCD2Config:
         """Create an SCD2Config instance with coercion and defaults applied.
 
@@ -102,6 +110,8 @@ class SCD2Config:
             scd_columns: Override default SCD2 output column names. Accepts an
                 `SCD2Columns` instance or a plain dict with any subset of keys:
                 `valid_from`, `valid_until`, `active_flag`, `delete_flag`, `row_hash`.
+            enable_latest_record_flag: When `True`, adds a `latest_record_flag` column
+                that is `True` for the most recent record per business key.
         """
         if isinstance(business_keys, str):
             business_keys = [business_keys]
@@ -121,4 +131,5 @@ class SCD2Config:
             non_copy_fields=non_copy_fields or [],
             open_end_date=open_end_date,
             scd_columns=resolved_scd_columns,
+            enable_latest_record_flag=enable_latest_record_flag,
         )

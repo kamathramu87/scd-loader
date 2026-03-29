@@ -22,6 +22,7 @@ result_df = loader.slowly_changing_dimension(
 )
 ```
 
+
 ### Incremental Load
 
 Pass a `df_tgt` to merge new snapshots into an existing SCD2 table:
@@ -32,6 +33,19 @@ result_df = loader.slowly_changing_dimension(
     business_keys=["employee_id"],
     date_column="snapshot_date",
     df_tgt=target_df,
+)
+```
+
+### Latest Record Flag
+
+Add a `latest_record_flag` column to identify the most recent record per business key across all historical versions:
+
+```python
+result_df = loader.slowly_changing_dimension(
+    df_src=source_df,
+    business_keys=["employee_id"],
+    date_column="snapshot_date",
+    enable_latest_record_flag=True,
 )
 ```
 
@@ -55,6 +69,7 @@ result_df = loader.slowly_changing_dimension(
 | `non_copy_fields` | `list[str] \| None` | `None` | Source columns excluded from the output |
 | `open_end_date` | `datetime \| None` | `9999-12-31` | `valid_until` value for currently active records |
 | `scd_columns` | `SCD2Columns \| dict[str, str] \| None` | `None` | Override default SCD2 output column names |
+| `enable_latest_record_flag` | `bool` | `False` | When `True`, adds a `latest_record_flag` column marking the most recent record per business key |
 
 ## Output Columns
 
@@ -68,6 +83,7 @@ The resulting DataFrame includes all source columns plus:
 | `delete_flag` | `delete_flag` | `True` if the record was deleted in the source |
 | `row_hash` | `row_hash` | SHA-256 hash of non-key columns (excluding `ignore_columns`) |
 | `upsert_flag` | `upsert_flag` | `I` for inserts, `U` for updates |
+| `latest_record_flag` | `latest_record_flag` | `True` for the most recent record per business key. Only present when `enable_latest_record_flag=True` |
 
 Column names can be overridden via the `scd_columns` parameter using either `SCD2Columns` (recommended — full IDE type hints) or a plain dict:
 
