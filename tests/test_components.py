@@ -85,7 +85,7 @@ class TestSCD2Columns:
         columns = SCD2Columns()
         field_list = columns.field_list()
         
-        expected_fields = ["valid_from", "valid_until", "active_flag", "delete_flag", "row_hash"]
+        expected_fields = ["valid_from", "valid_until", "active_flag", "delete_flag", "row_hash", "latest_record_flag"]
         assert set(field_list) == set(expected_fields)
 
 
