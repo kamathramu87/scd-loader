@@ -23,37 +23,40 @@ COL_DELETE_FLAG = "delete_flag"
 
 
 @dataclass
-class SCD2Columns:
+class SCD2ColumnNames:
     """Custom names for SCD2 output columns.
 
     All fields are optional and default to their standard names. Pass an instance
     of this class to `SCD2Loader.slowly_changing_dimension()` via `scd_columns`
     to rename any subset of output columns.
 
+    Attributes:
+        valid_from: Date when the record became active.
+        valid_until: Date when the record was superseded. `9999-12-31` for currently active records.
+        active_flag: `True` for the currently active version of a record.
+        delete_flag: `True` if the record was deleted in the source.
+        row_hash: SHA-256 hash of non-key columns, used for change detection.
+        latest_record_flag: `True` for the most recent record per business key.
+            Only present when `enable_latest_record_flag=True`.
+
     Example:
         ```python
-        from scd_loader import SCD2Columns
+        from scd_loader import SCD2ColumnNames
 
-        SCD2Columns(valid_from="eff_start_date", valid_until="eff_end_date")
+        SCD2ColumnNames(valid_from="eff_start_date", valid_until="eff_end_date")
         ```
     """
 
     valid_from: str = "valid_from"
-    """Date when the record became active."""
     valid_until: str = "valid_until"
-    """Date when the record was superseded. `9999-12-31` for currently active records."""
     active_flag: str = "active_flag"
-    """`True` for the currently active version of a record."""
     delete_flag: str = "delete_flag"
-    """`True` if the record was deleted in the source."""
     row_hash: str = "row_hash"
-    """SHA-256 hash of non-key columns, used for change detection."""
     latest_record_flag: str = "latest_record_flag"
-    """`True` for the most recent record per business key. Only present when `enable_latest_record_flag=True`."""
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> SCD2Columns:
-        """Create SCD2Columns instance from dictionary, filtering valid fields."""
+    def from_dict(cls, data: dict[str, Any]) -> SCD2ColumnNames:
+        """Create SCD2ColumnNames instance from dictionary, filtering valid fields."""
         field_names = {f.name for f in fields(cls)}
         filtered_data = {k: v for k, v in data.items() if k in field_names}
         return cls(**filtered_data)
@@ -76,7 +79,7 @@ class SCD2Config:
     ignore_columns: list[str] | None = None
     non_copy_fields: list[str] | None = None
     open_end_date: datetime | None = OPEN_END_DATE
-    scd_columns: SCD2Columns = field(default_factory=SCD2Columns)
+    scd_columns: SCD2ColumnNames = field(default_factory=SCD2ColumnNames)
     enable_latest_record_flag: bool = False
 
     def __post_init__(self) -> None:
@@ -94,7 +97,7 @@ class SCD2Config:
         ignore_columns: list[str] | None = None,
         non_copy_fields: list[str] | None = None,
         open_end_date: datetime | None = OPEN_END_DATE,
-        scd_columns: SCD2Columns | dict[str, str] | None = None,
+        scd_columns: SCD2ColumnNames | dict[str, str] | None = None,
         enable_latest_record_flag: bool = False,
     ) -> SCD2Config:
         """Create an SCD2Config instance with coercion and defaults applied.
@@ -108,7 +111,7 @@ class SCD2Config:
             open_end_date: Value written to `valid_until` for currently active
                 records. Defaults to `9999-12-31`.
             scd_columns: Override default SCD2 output column names. Accepts an
-                `SCD2Columns` instance or a plain dict with any subset of keys:
+                `SCD2ColumnNames` instance or a plain dict with any subset of keys:
                 `valid_from`, `valid_until`, `active_flag`, `delete_flag`, `row_hash`.
             enable_latest_record_flag: When `True`, adds a `latest_record_flag` column
                 that is `True` for the most recent record per business key.
@@ -116,11 +119,11 @@ class SCD2Config:
         if isinstance(business_keys, str):
             business_keys = [business_keys]
 
-        resolved_scd_columns: SCD2Columns
+        resolved_scd_columns: SCD2ColumnNames
         if isinstance(scd_columns, dict):
-            resolved_scd_columns = SCD2Columns.from_dict(scd_columns)
+            resolved_scd_columns = SCD2ColumnNames.from_dict(scd_columns)
         elif scd_columns is None:
-            resolved_scd_columns = SCD2Columns()
+            resolved_scd_columns = SCD2ColumnNames()
         else:
             resolved_scd_columns = scd_columns
 

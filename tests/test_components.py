@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime
 from unittest.mock import MagicMock
 
-from scd_loader.core.config import SCD2Config, SCD2Columns
+from scd_loader.core.config import SCD2Config, SCD2ColumnNames
 from scd_loader.core.validator import SCD2Validator
 from scd_loader.exceptions import (
     BusinessKeysEmptyError,
@@ -26,7 +26,7 @@ class TestSCD2Config:
         assert config.ignore_columns == []
         assert config.non_copy_fields == []
         assert config.open_end_date == datetime(9999, 12, 31)
-        assert isinstance(config.scd_columns, SCD2Columns)
+        assert isinstance(config.scd_columns, SCD2ColumnNames)
 
     def test_config_creation_with_string_business_key(self):
         """Test creating config with string business key."""
@@ -52,12 +52,12 @@ class TestSCD2Config:
         assert config.open_end_date == custom_date
 
 
-class TestSCD2Columns:
-    """Test cases for SCD2Columns class."""
+class TestSCD2ColumnNames:
+    """Test cases for SCD2ColumnNames class."""
 
     def test_default_column_names(self):
         """Test default SCD2 column names."""
-        columns = SCD2Columns()
+        columns = SCD2ColumnNames()
         
         assert columns.valid_from == "valid_from"
         assert columns.valid_until == "valid_until"
@@ -66,14 +66,14 @@ class TestSCD2Columns:
         assert columns.row_hash == "row_hash"
 
     def test_from_dict_creation(self):
-        """Test creating SCD2Columns from dictionary."""
+        """Test creating SCD2ColumnNames from dictionary."""
         data = {
             "valid_from": "start_date",
             "valid_until": "end_date",
             "invalid_field": "should_be_ignored"
         }
         
-        columns = SCD2Columns.from_dict(data)
+        columns = SCD2ColumnNames.from_dict(data)
         
         assert columns.valid_from == "start_date"
         assert columns.valid_until == "end_date"
@@ -82,7 +82,7 @@ class TestSCD2Columns:
 
     def test_field_list(self):
         """Test getting field list."""
-        columns = SCD2Columns()
+        columns = SCD2ColumnNames()
         field_list = columns.field_list()
         
         expected_fields = ["valid_from", "valid_until", "active_flag", "delete_flag", "row_hash", "latest_record_flag"]

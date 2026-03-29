@@ -11,7 +11,7 @@ pip install scd-loader
 ## Quick Start
 
 ```python
-from scd_loader import SCD2Loader, SCD2Columns
+from scd_loader import SCD2Loader, SCD2ColumnNames
 
 loader = SCD2Loader(spark_session=spark)
 
@@ -68,7 +68,7 @@ result_df = loader.slowly_changing_dimension(
 | `ignore_columns` | `list[str] \| None` | `None` | Columns excluded from hash-based change detection |
 | `non_copy_fields` | `list[str] \| None` | `None` | Source columns excluded from the output |
 | `open_end_date` | `datetime \| None` | `9999-12-31` | `valid_until` value for currently active records |
-| `scd_columns` | `SCD2Columns \| dict[str, str] \| None` | `None` | Override default SCD2 output column names |
+| `scd_columns` | `SCD2ColumnNames \| dict[str, str] \| None` | `None` | Override default SCD2 output column names |
 | `enable_latest_record_flag` | `bool` | `False` | When `True`, adds a `latest_record_flag` column marking the most recent record per business key |
 
 ## Output Columns
@@ -85,16 +85,16 @@ The resulting DataFrame includes all source columns plus:
 | `upsert_flag` | `upsert_flag` | `I` for inserts, `U` for updates |
 | `latest_record_flag` | `latest_record_flag` | `True` for the most recent record per business key. Only present when `enable_latest_record_flag=True` |
 
-Column names can be overridden via the `scd_columns` parameter using either `SCD2Columns` (recommended — full IDE type hints) or a plain dict:
+Column names can be overridden via the `scd_columns` parameter using either `SCD2ColumnNames` (recommended — full IDE type hints) or a plain dict:
 
 ```python
-from scd_loader import SCD2Loader, SCD2Columns
+from scd_loader import SCD2Loader, SCD2ColumnNames
 
-# Using SCD2Columns (recommended)
+# Using SCD2ColumnNames (recommended)
 result_df = loader.slowly_changing_dimension(
     df_src=source_df,
     business_keys=["employee_id"],
-    scd_columns=SCD2Columns(
+    scd_columns=SCD2ColumnNames(
         valid_from="eff_start_date",
         valid_until="eff_end_date",
         active_flag="is_current",
