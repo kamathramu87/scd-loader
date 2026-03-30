@@ -16,7 +16,9 @@ class HashService:
     """Service for handling hash calculations in SCD2 processing."""
 
     @staticmethod
-    def apply_hash_transformations(df: DataFrame, config: SCD2Config, source_columns: list[str]) -> DataFrame:
+    def apply_hash_transformations(
+        df: DataFrame, config: SCD2Config, source_columns: list[str]
+    ) -> DataFrame:
         """Apply hash transformations to identify changes.
 
         Args:
@@ -33,7 +35,12 @@ class HashService:
             f.sha2(
                 f.concat_ws(
                     HASH_SEPARATOR,
-                    *[col for col in source_columns if col not in (config.ignore_columns or [])] + [COL_DELETED],
+                    *[
+                        col
+                        for col in source_columns
+                        if col not in (config.ignore_columns or [])
+                    ]
+                    + [COL_DELETED],
                 ),
                 256,
             ),
@@ -45,7 +52,11 @@ class HashService:
             f.sha2(
                 f.concat_ws(
                     HASH_SEPARATOR,
-                    *[col for col in source_columns if col not in (config.ignore_columns or [])],
+                    *[
+                        col
+                        for col in source_columns
+                        if col not in (config.ignore_columns or [])
+                    ],
                 ),
                 256,
             ),

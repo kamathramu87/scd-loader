@@ -167,11 +167,36 @@ class TestSCD2Load:
 
     def test_latest_record_flag(self, spark_session):
         data = [
-            {"region": "US", "product": "A", "version": 1, "snapshot_date": datetime(2022, 1, 1)},
-            {"region": "US", "product": "A", "version": 2, "snapshot_date": datetime(2022, 2, 1)},
-            {"region": "US", "product": "B", "version": 1, "snapshot_date": datetime(2022, 1, 1)},
-            {"region": "EU", "product": "A", "version": 1, "snapshot_date": datetime(2022, 1, 1)},
-            {"region": "EU", "product": "A", "version": 2, "snapshot_date": datetime(2022, 3, 1)},
+            {
+                "region": "US",
+                "product": "A",
+                "version": 1,
+                "snapshot_date": datetime(2022, 1, 1),
+            },
+            {
+                "region": "US",
+                "product": "A",
+                "version": 2,
+                "snapshot_date": datetime(2022, 2, 1),
+            },
+            {
+                "region": "US",
+                "product": "B",
+                "version": 1,
+                "snapshot_date": datetime(2022, 1, 1),
+            },
+            {
+                "region": "EU",
+                "product": "A",
+                "version": 1,
+                "snapshot_date": datetime(2022, 1, 1),
+            },
+            {
+                "region": "EU",
+                "product": "A",
+                "version": 2,
+                "snapshot_date": datetime(2022, 3, 1),
+            },
         ]
         df_src = spark_session.createDataFrame(data)
 
@@ -195,7 +220,9 @@ class TestSCD2Load:
 
         # Verify correct records are flagged as latest
         latest_records = output_df.filter("latest_record_flag = true").collect()
-        latest_versions = {(r["region"], r["product"]): r["version"] for r in latest_records}
+        latest_versions = {
+            (r["region"], r["product"]): r["version"] for r in latest_records
+        }
         assert latest_versions[("US", "A")] == 2
         assert latest_versions[("US", "B")] == 1
         assert latest_versions[("EU", "A")] == 2

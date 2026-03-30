@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from scd_loader.core.config import DEFAULT_DATE_COLUMN, OPEN_END_DATE, SCD2ColumnNames, SCD2Config
+from scd_loader.core.config import DEFAULT_DATE_COLUMN, OPEN_END_DATE, SCD2Config
 from scd_loader.core.processor import SCD2Processor
 from scd_loader.utils.spark_factory import SparkSessionFactory
 
@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from pyspark.sql import DataFrame, SparkSession
+
+    from scd_loader.core.config import SCD2ColumnNames
 
 logger = logging.getLogger(__name__)
 

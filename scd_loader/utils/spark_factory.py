@@ -24,7 +24,9 @@ class SparkSessionFactory:
         return SparkSession.builder.appName(app_name).getOrCreate()
 
     @staticmethod
-    def get_or_create_session(spark_session: SparkSession | None = None, app_name: str = "SCD2Loader") -> SparkSession:
+    def get_or_create_session(
+        spark_session: SparkSession | None = None, app_name: str = "SCD2Loader"
+    ) -> SparkSession:
         """Get existing session or create a new one.
 
         Args:
