@@ -84,6 +84,8 @@ class SCD2Loader:
             scd_columns=scd_columns,
             enable_latest_record_flag=enable_latest_record_flag,
         )
+        print("SCD2 Configuration:", config)
+        return None
 
         # Process the data using the processor
-        return self.processor.process(df_src, df_tgt, config)
+        # return self.processor.process(df_src, df_tgt, config)
