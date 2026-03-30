@@ -43,21 +43,17 @@ class DataService:
         Returns:
             Prepared DataFrame
         """
-        df_cleaned = (
-            df_src.drop(*config.non_copy_fields) if config.non_copy_fields else df_src
-        )
+        df_cleaned = df_src.drop(*config.non_copy_fields) if config.non_copy_fields else df_src
 
         # Add original SCD2 columns for tracking
-        df = df_cleaned.withColumn(
-            COL_ORIG_VALID_FROM, f.lit(None).cast("timestamp")
-        ).withColumn(COL_ORIG_VALID_UNTIL, f.lit(None).cast("timestamp"))
+        df = df_cleaned.withColumn(COL_ORIG_VALID_FROM, f.lit(None).cast("timestamp")).withColumn(
+            COL_ORIG_VALID_UNTIL, f.lit(None).cast("timestamp")
+        )
 
         return df
 
     @staticmethod
-    def handle_incremental_load(
-        df_src: DataFrame, df_tgt: DataFrame, config: SCD2Config
-    ) -> DataFrame:
+    def handle_incremental_load(df_src: DataFrame, df_tgt: DataFrame, config: SCD2Config) -> DataFrame:
         """Handle incremental load by merging source and target data.
 
         Args:
@@ -74,9 +70,9 @@ class DataService:
         SCD2Validator.validate_data_freshness(df_src, df_tgt, config)
 
         # Rename target columns for processing
-        df_tgt_renamed = df_tgt.withColumnRenamed(
-            config.scd_columns.valid_from, COL_ORIG_VALID_FROM
-        ).withColumnRenamed(config.scd_columns.valid_until, COL_ORIG_VALID_UNTIL)
+        df_tgt_renamed = df_tgt.withColumnRenamed(config.scd_columns.valid_from, COL_ORIG_VALID_FROM).withColumnRenamed(
+            config.scd_columns.valid_until, COL_ORIG_VALID_UNTIL
+        )
 
         # Get target columns excluding SCD2 columns
         df_tgt_select = df_tgt_renamed.drop(*config.scd_columns.field_list())
@@ -94,9 +90,7 @@ class DataService:
         return df_merged
 
     @staticmethod
-    def filter_for_changes(
-        df: DataFrame, config: SCD2Config, window_func: WindowSpec
-    ) -> DataFrame:
+    def filter_for_changes(df: DataFrame, config: SCD2Config, window_func: WindowSpec) -> DataFrame:
         """Filter DataFrame to keep only records with changes.
 
         Args:
@@ -107,17 +101,13 @@ class DataService:
         Returns:
             DataFrame with only changed records
         """
-        df_with_lag = df.withColumn(
-            COL_ROW_HASH_CHANGED_LAG, f.lag(COL_ROW_HASH_CHANGED).over(window_func)
-        )
+        df_with_lag = df.withColumn(COL_ROW_HASH_CHANGED_LAG, f.lag(COL_ROW_HASH_CHANGED).over(window_func))
 
         df_filtered = (
-            df_with_lag.filter(
+            df_with_lag
+            .filter(
                 (df_with_lag[COL_ROW_HASH_CHANGED_LAG].isNull())
-                | (
-                    df_with_lag[COL_ROW_HASH_CHANGED_LAG]
-                    != df_with_lag[COL_ROW_HASH_CHANGED]
-                )
+                | (df_with_lag[COL_ROW_HASH_CHANGED_LAG] != df_with_lag[COL_ROW_HASH_CHANGED])
             )
             .drop(COL_ROW_HASH_CHANGED_LAG, COL_ROW_HASH_CHANGED)
             .withColumn(COL_NEXT_CHANGE, f.lead(config.date_column).over(window_func))
@@ -138,12 +128,11 @@ class DataService:
             DataFrame with SCD2 support columns
         """
         df_with_support = (
-            df.filter(~f.col(COL_DELETED))
+            df
+            .filter(~f.col(COL_DELETED))
             .withColumn(
                 config.scd_columns.valid_from,
-                f.coalesce(
-                    df[COL_ORIG_VALID_FROM], f.col(config.date_column).cast("timestamp")
-                ),
+                f.coalesce(df[COL_ORIG_VALID_FROM], f.col(config.date_column).cast("timestamp")),
             )
             .withColumn(
                 config.date_column,
@@ -172,9 +161,7 @@ class DataService:
         )
 
         if config.enable_latest_record_flag:
-            df_with_support = DataService._add_latest_record_flag(
-                df_with_support, config
-            )
+            df_with_support = DataService._add_latest_record_flag(df_with_support, config)
 
         return df_with_support
 
@@ -189,11 +176,10 @@ class DataService:
         Returns:
             DataFrame with latest_record_flag column added
         """
-        window_spec = Window.partitionBy(config.business_keys).orderBy(
-            f.col(config.scd_columns.valid_from).desc()
-        )
+        window_spec = Window.partitionBy(config.business_keys).orderBy(f.col(config.scd_columns.valid_from).desc())
         return (
-            df.withColumn("_row_num", f.row_number().over(window_spec))
+            df
+            .withColumn("_row_num", f.row_number().over(window_spec))
             .withColumn(
                 config.scd_columns.latest_record_flag,
                 f.when(f.col("_row_num") == 1, True).otherwise(False),
@@ -214,7 +200,8 @@ class DataService:
         """
         # Create date window for next available dates
         snapshot_dates_df = (
-            df.select(config.date_column)
+            df
+            .select(config.date_column)
             .distinct()
             .withColumn(
                 "next_date_available",
@@ -224,34 +211,26 @@ class DataService:
         )
 
         # Get max snapshot date across all partitions
-        max_snapshot_date_row = snapshot_dates_df.agg(
-            f.max(f"{config.date_column}_r").alias("max_date")
-        ).first()
-        max_snapshot_date = (
-            max_snapshot_date_row.max_date if max_snapshot_date_row else None
-        )
+        max_snapshot_date_row = snapshot_dates_df.agg(f.max(f"{config.date_column}_r").alias("max_date")).first()
+        max_snapshot_date = max_snapshot_date_row.max_date if max_snapshot_date_row else None
 
         # Join and identify deletions
         df_with_dates = (
-            df.join(
+            df
+            .join(
                 snapshot_dates_df,
                 f.col(config.date_column) == f.col(f"{config.date_column}_r"),
                 "left",
             )
             .withColumn(
                 COL_DATE_LEAD,
-                f.lead(config.date_column).over(
-                    Window.partitionBy(config.business_keys).orderBy(config.date_column)
-                ),
+                f.lead(config.date_column).over(Window.partitionBy(config.business_keys).orderBy(config.date_column)),
             )
             .withColumn(
                 COL_DELETED,
                 f.when(
                     (f.col("next_date_available") != f.col(COL_DATE_LEAD))
-                    | (
-                        (f.col(COL_DATE_LEAD).isNull())
-                        & (df[config.date_column] != max_snapshot_date)
-                    ),
+                    | ((f.col(COL_DATE_LEAD).isNull()) & (df[config.date_column] != max_snapshot_date)),
                     True,
                 ).otherwise(False),
             )
@@ -260,17 +239,15 @@ class DataService:
         # Create deletion periods
         date_col_r = f"{config.date_column}_r"
         df_expanded = (
-            df_with_dates.drop("next_date_available", COL_DATE_LEAD, date_col_r)
+            df_with_dates
+            .drop("next_date_available", COL_DATE_LEAD, date_col_r)
             .withColumn(COL_DELETED, f.lit(False))
             .union(
-                df_with_dates.where(f.col(COL_DELETED))
+                df_with_dates
+                .where(f.col(COL_DELETED))
                 .drop(config.date_column, COL_DATE_LEAD, date_col_r)
                 .withColumnRenamed("next_date_available", config.date_column)
-                .select(
-                    df_with_dates.drop(
-                        "next_date_available", COL_DATE_LEAD, date_col_r
-                    ).columns
-                )
+                .select(df_with_dates.drop("next_date_available", COL_DATE_LEAD, date_col_r).columns)
             )
         )
 
@@ -307,22 +284,19 @@ class DataService:
         scd_output_columns = [
             col
             for col in config.scd_columns.column_list()
-            if config.enable_latest_record_flag
-            or col != config.scd_columns.latest_record_flag
+            if config.enable_latest_record_flag or col != config.scd_columns.latest_record_flag
         ]
 
         target_columns = source_columns + scd_output_columns + [UPSERT_FLAG_COLUMN]
 
         # Filter for records that need to be inserted or updated
         df_filtered = df.filter(
-            (
-                f.coalesce(df[COL_ORIG_VALID_UNTIL], f.lit(config.open_end_date))
-                != df[config.scd_columns.valid_until]
-            )
+            (f.coalesce(df[COL_ORIG_VALID_UNTIL], f.lit(config.open_end_date)) != df[config.scd_columns.valid_until])
             | (df[COL_ORIG_VALID_FROM].isNull())
         )
 
         # Select final columns
+        print(f"Final target columns: {target_columns}")
         df_output = df_filtered.select(target_columns)
 
         return df_output
