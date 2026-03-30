@@ -3,7 +3,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from scd_loader.core.config import DEFAULT_DATE_COLUMN, OPEN_END_DATE, SCD2Config
+from scd_loader.core.config import (
+    DEFAULT_DATE_COLUMN,
+    OPEN_END_DATE,
+    SCD2Config,
+    SourceType,
+)
 from scd_loader.core.processor import SCD2Processor
 from scd_loader.utils.spark_factory import SparkSessionFactory
 
@@ -45,6 +50,7 @@ class SCD2Loader:
         open_end_date: datetime | None = OPEN_END_DATE,
         scd_columns: SCD2ColumnNames | dict[str, str] | None = None,
         enable_latest_record_flag: bool = False,
+        source_type: SourceType = SourceType.FULL,
     ) -> DataFrame:
         """Process slowly changing dimension type 2 transformation.
 
@@ -65,6 +71,11 @@ class SCD2Loader:
                 `active_flag`, `delete_flag`, `row_hash`.
             enable_latest_record_flag: When `True`, adds a `latest_record_flag` column
                 that is `True` for the most recent record per business key.
+            source_type: ``"full"`` (default) for full snapshot sources where
+                deletions are detected between snapshots and a ``delete_flag``
+                column is included in the output. ``"incremental"`` for feeds
+                that only contain changed/new records — deletion detection is
+                skipped and ``delete_flag`` is omitted from the output.
 
         Returns:
             DataFrame with SCD2 columns and transformations applied
@@ -83,6 +94,7 @@ class SCD2Loader:
             open_end_date=open_end_date,
             scd_columns=scd_columns,
             enable_latest_record_flag=enable_latest_record_flag,
+            source_type=source_type,
         )
 
         # Process the data using the processor

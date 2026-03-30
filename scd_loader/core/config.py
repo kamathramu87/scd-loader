@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
+
+
+class SourceType(StrEnum):
+    FULL = "full"
+    INCREMENTAL = "incremental"
+
 
 # Constants
 OPEN_END_DATE = datetime(9999, 12, 31)
@@ -81,6 +88,7 @@ class SCD2Config:
     open_end_date: datetime | None = OPEN_END_DATE
     scd_columns: SCD2ColumnNames = field(default_factory=SCD2ColumnNames)
     enable_latest_record_flag: bool = False
+    source_type: SourceType = SourceType.FULL
 
     def __post_init__(self) -> None:
         """Initialize default values for optional fields."""
@@ -99,6 +107,7 @@ class SCD2Config:
         open_end_date: datetime | None = OPEN_END_DATE,
         scd_columns: SCD2ColumnNames | dict[str, str] | None = None,
         enable_latest_record_flag: bool = False,
+        source_type: SourceType = SourceType.FULL,
     ) -> SCD2Config:
         """Create an SCD2Config instance with coercion and defaults applied.
 
@@ -115,6 +124,10 @@ class SCD2Config:
                 `valid_from`, `valid_until`, `active_flag`, `delete_flag`, `row_hash`.
             enable_latest_record_flag: When `True`, adds a `latest_record_flag` column
                 that is `True` for the most recent record per business key.
+            source_type: Whether the source is a ``"full"`` snapshot or
+                ``"incremental"`` feed. Delete-flag detection is only performed
+                for ``"full"`` sources; the ``delete_flag`` column is omitted
+                entirely for ``"incremental"`` sources.
         """
         if isinstance(business_keys, str):
             business_keys = [business_keys]
@@ -135,4 +148,5 @@ class SCD2Config:
             open_end_date=open_end_date,
             scd_columns=resolved_scd_columns,
             enable_latest_record_flag=enable_latest_record_flag,
+            source_type=source_type,
         )
