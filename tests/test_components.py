@@ -4,14 +4,14 @@ import pytest
 from datetime import datetime
 from unittest.mock import MagicMock
 
-from scd_loader.core.config import SCD2Config, SCD2ColumnNames
-from scd_loader.core.validator import SCD2Validator
-from scd_loader.exceptions import (
+from loadx.scd2.config import SCD2Config, SCD2ColumnNames
+from loadx.scd2.validator import SCD2Validator
+from loadx.exceptions import (
     BusinessKeysEmptyError,
     EmptyDataExceptionError,
     ConfigurationError,
 )
-from scd_loader.utils.spark_factory import SparkSessionFactory
+from loadx.utils.spark_factory import SparkSessionFactory
 
 
 class TestSCD2Config:

@@ -6,15 +6,15 @@ from typing import TYPE_CHECKING
 import pyspark.sql.functions as f
 from pyspark.sql.window import Window
 
-from scd_loader.core.config import COL_DELETED
-from scd_loader.core.validator import SCD2Validator
-from scd_loader.services.data_service import DataService
-from scd_loader.services.hash_service import HashService
+from loadx.scd2.config import COL_DELETED
+from loadx.scd2.validator import SCD2Validator
+from loadx.scd2.services.data_service import DataService
+from loadx.scd2.services.hash_service import HashService
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
 
-    from scd_loader.core.config import SCD2Config
+    from loadx.scd2.config import SCD2Config
 
 logger = logging.getLogger(__name__)
 

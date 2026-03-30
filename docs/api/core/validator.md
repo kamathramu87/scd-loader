@@ -1,3 +1,3 @@
 # Validator
 
-::: scd_loader.core.validator
+::: loadx.scd2.validator

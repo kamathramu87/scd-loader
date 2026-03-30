@@ -48,7 +48,7 @@ class SCD2ColumnNames:
 
     Example:
         ```python
-        from scd_loader import SCD2ColumnNames
+        from loadx import SCD2ColumnNames
 
         SCD2ColumnNames(valid_from="eff_start_date", valid_until="eff_end_date")
         ```

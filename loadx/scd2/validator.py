@@ -3,17 +3,17 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from scd_loader.exceptions import (
+from loadx.exceptions import (
     BusinessKeysEmptyError,
     EmptyDataExceptionError,
     OldDataExceptionError,
 )
-from scd_loader.services.date_service import DateService
+from loadx.scd2.services.date_service import DateService
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
 
-    from scd_loader.core.config import SCD2Config
+    from loadx.scd2.config import SCD2Config
 
 logger = logging.getLogger(__name__)
 

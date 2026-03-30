@@ -1,5 +1,5 @@
 [project]
-name = "scd-loader"
+name = "loadx"
 version = "0.1.0"
 description = ""
 authors = [{ name = "Ramu Kamath", email = "ramu.kamath.1988@gmail.clm" }]
@@ -32,10 +32,10 @@ docs = [
 ]
 
 [tool.hatch.build.targets.sdist]
-include = ["scd_loader"]
+include = ["loadx"]
 
 [tool.hatch.build.targets.wheel]
-include = ["scd_loader"]
+include = ["loadx"]
 
 [build-system]
 requires = ["hatchling"]

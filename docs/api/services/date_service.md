@@ -1,3 +1,3 @@
 # DateService
 
-::: scd_loader.services.date_service
+::: loadx.scd2.services.date_service

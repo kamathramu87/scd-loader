@@ -34,20 +34,26 @@ This is a **PySpark library** for Slowly Changing Dimension Type 2 (SCD2) transf
 ### Module Layout
 
 ```
-scd_loader/
-├── scd2_loader.py          # Public API: SCD2Loader class
+loadx/
+├── __init__.py              # exports SCD2Loader, SCD2ColumnNames, SourceType
 ├── exceptions.py            # Custom exception hierarchy
-├── core/
-│   ├── config.py           # SCD2Config, SCD2Columns dataclasses
-│   ├── processor.py        # SCD2Processor — orchestrates the pipeline
-│   └── validator.py        # SCD2Validator — static validation methods
-├── services/
-│   ├── data_service.py     # DataFrame transformations
-│   ├── hash_service.py     # SHA-256 change detection hashing
-│   └── date_service.py     # Date utilities
+├── scd2/                    # SCD2 (history) strategy
+│   ├── __init__.py          # exports SCD2Loader
+│   ├── loader.py            # Public API: SCD2Loader class
+│   ├── config.py            # SCD2Config, SCD2ColumnNames dataclasses
+│   ├── processor.py         # SCD2Processor — orchestrates the pipeline
+│   ├── validator.py         # SCD2Validator — static validation methods
+│   └── services/
+│       ├── data_service.py  # DataFrame transformations
+│       ├── hash_service.py  # SHA-256 change detection hashing
+│       └── date_service.py  # Date utilities
+├── scd1/                    # Future: SCD1 (merge/upsert) strategy
+│   └── __init__.py          # stub with docstring only
+├── overwrite/               # Future: overwrite strategy
+│   └── __init__.py          # stub with docstring only
 └── utils/
-    ├── spark_factory.py    # SparkSession factory
-    └── logging_config.py   # Centralized logging
+    ├── spark_factory.py     # SparkSession factory
+    └── logging_config.py    # Centralized logging
 ```
 
 ### Data Flow

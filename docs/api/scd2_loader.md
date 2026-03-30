@@ -1,3 +1,3 @@
 # SCD2Loader
 
-::: scd_loader.scd2_loader.SCD2Loader
+::: loadx.scd2.loader.SCD2Loader

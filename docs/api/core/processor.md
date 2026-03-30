@@ -1,3 +1,3 @@
 # Processor
 
-::: scd_loader.core.processor
+::: loadx.scd2.processor
