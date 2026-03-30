@@ -1,3 +1,3 @@
 # DataService
 
-::: scd_loader.services.data_service
+::: loadx.scd2.services.data_service

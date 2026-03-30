@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from scd_loader.exceptions import EmptyDataExceptionError, OldDataExceptionError
+from loadx.exceptions import EmptyDataExceptionError, OldDataExceptionError
 import pytest
 from chispa.dataframe_comparer import assert_df_equality
 
-from scd_loader.scd2_loader import SCD2Loader
-from scd_loader import SourceType
+from loadx.scd2.loader import SCD2Loader
+from loadx import SourceType
 
 
 @pytest.fixture(scope="session")

@@ -1,3 +1,3 @@
 # Config
 
-::: scd_loader.core.config
+::: loadx.scd2.config

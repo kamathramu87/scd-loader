@@ -1,3 +1,3 @@
 # Exceptions
 
-::: scd_loader.exceptions
+::: loadx.exceptions

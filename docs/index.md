@@ -11,7 +11,7 @@ pip install scd-loader
 ## Quick Start
 
 ```python
-from scd_loader import SCD2Loader, SCD2ColumnNames, SourceType
+from loadx import SCD2Loader, SCD2ColumnNames, SourceType
 
 loader = SCD2Loader(spark_session=spark)
 
@@ -41,7 +41,7 @@ result_df = loader.slowly_changing_dimension(
 Use `SourceType.FULL` (default) when the source is a complete daily/periodic snapshot — records absent from the latest snapshot are detected as deletions and `delete_flag` is included in the output:
 
 ```python
-from scd_loader import SCD2Loader, SourceType
+from loadx import SCD2Loader, SourceType
 
 result_df = loader.slowly_changing_dimension(
     df_src=source_df,
@@ -115,7 +115,7 @@ The resulting DataFrame includes all source columns plus:
 Column names can be overridden via the `scd_columns` parameter using either `SCD2ColumnNames` (recommended — full IDE type hints) or a plain dict:
 
 ```python
-from scd_loader import SCD2Loader, SCD2ColumnNames
+from loadx import SCD2Loader, SCD2ColumnNames
 
 # Using SCD2ColumnNames (recommended)
 result_df = loader.slowly_changing_dimension(

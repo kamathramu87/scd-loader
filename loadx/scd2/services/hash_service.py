@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING
 
 import pyspark.sql.functions as f
 
-from scd_loader.core.config import COL_DELETED, COL_ROW_HASH_CHANGED, HASH_SEPARATOR
+from loadx.scd2.config import COL_DELETED, COL_ROW_HASH_CHANGED, HASH_SEPARATOR
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
 
-    from scd_loader.core.config import SCD2Config
+    from loadx.scd2.config import SCD2Config
 
 
 class HashService:

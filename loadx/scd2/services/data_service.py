@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import pyspark.sql.functions as f
 from pyspark.sql.window import Window
 
-from scd_loader.core.config import (
+from loadx.scd2.config import (
     COL_DATE_LEAD,
     COL_DELETE_FLAG,
     COL_DELETED,
@@ -17,14 +17,14 @@ from scd_loader.core.config import (
     COL_ROW_HASH_CHANGED_LAG,
     UPSERT_FLAG_COLUMN,
 )
-from scd_loader.core.validator import SCD2Validator
-from scd_loader.services.date_service import DateService
+from loadx.scd2.services.date_service import DateService
+from loadx.scd2.validator import SCD2Validator
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
     from pyspark.sql.window import WindowSpec
 
-    from scd_loader.core.config import SCD2Config
+    from loadx.scd2.config import SCD2Config
 
 logger = logging.getLogger(__name__)
 

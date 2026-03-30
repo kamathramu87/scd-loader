@@ -1,3 +1,3 @@
 # HashService
 
-::: scd_loader.services.hash_service
+::: loadx.scd2.services.hash_service
