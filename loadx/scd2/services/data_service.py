@@ -17,8 +17,8 @@ from loadx.scd2.config import (
     COL_ROW_HASH_CHANGED_LAG,
     UPSERT_FLAG_COLUMN,
 )
-from loadx.scd2.validator import SCD2Validator
 from loadx.scd2.services.date_service import DateService
+from loadx.scd2.validator import SCD2Validator
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame

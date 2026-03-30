@@ -7,9 +7,9 @@ import pyspark.sql.functions as f
 from pyspark.sql.window import Window
 
 from loadx.scd2.config import COL_DELETED
-from loadx.scd2.validator import SCD2Validator
 from loadx.scd2.services.data_service import DataService
 from loadx.scd2.services.hash_service import HashService
+from loadx.scd2.validator import SCD2Validator
 
 if TYPE_CHECKING:
     from pyspark.sql import DataFrame
