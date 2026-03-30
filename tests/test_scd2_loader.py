@@ -7,6 +7,7 @@ import pytest
 from chispa.dataframe_comparer import assert_df_equality
 
 from scd_loader.scd2_loader import SCD2Loader
+from scd_loader import SourceType
 
 
 @pytest.fixture(scope="session")
@@ -226,3 +227,153 @@ class TestSCD2Load:
         assert latest_versions[("US", "A")] == 2
         assert latest_versions[("US", "B")] == 1
         assert latest_versions[("EU", "A")] == 2
+
+
+class TestSCD2IncrementalSourceType:
+    def test_incremental_initial_load(self, spark_session):
+        """Incremental initial load: changed records produce SCD2 history, absent records
+        stay active, and delete_flag is absent from output."""
+        day1 = spark_session.createDataFrame(
+            [
+                {
+                    "employee_id": 100,
+                    "name": "Alice",
+                    "city": "Amsterdam",
+                    "snapshot_date": datetime(2022, 1, 1),
+                },
+                {
+                    "employee_id": 200,
+                    "name": "Bob",
+                    "city": "London",
+                    "snapshot_date": datetime(2022, 1, 1),
+                },
+            ]
+        )
+        day2 = spark_session.createDataFrame(
+            [
+                {
+                    "employee_id": 200,
+                    "name": "Bob",
+                    "city": "Paris",
+                    "snapshot_date": datetime(2022, 1, 2),
+                },
+            ]
+        )
+
+        output = SCD2Loader().slowly_changing_dimension(
+            df_src=day1.union(day2),
+            business_keys="employee_id",
+            source_type=SourceType.INCREMENTAL,
+        )
+
+        assert "delete_flag" not in output.columns
+
+        expected = spark_session.createDataFrame(
+            [
+                {
+                    "employee_id": 100,
+                    "name": "Alice",
+                    "city": "Amsterdam",
+                    "valid_from": datetime(2022, 1, 1),
+                    "valid_until": datetime(9999, 12, 31),
+                    "active_flag": True,
+                    "upsert_flag": "I",
+                },
+                {
+                    "employee_id": 200,
+                    "name": "Bob",
+                    "city": "London",
+                    "valid_from": datetime(2022, 1, 1),
+                    "valid_until": datetime(2022, 1, 2),
+                    "active_flag": False,
+                    "upsert_flag": "I",
+                },
+                {
+                    "employee_id": 200,
+                    "name": "Bob",
+                    "city": "Paris",
+                    "valid_from": datetime(2022, 1, 2),
+                    "valid_until": datetime(9999, 12, 31),
+                    "active_flag": True,
+                    "upsert_flag": "I",
+                },
+            ]
+        )
+        assert_df_equality(
+            expected,
+            output.select(expected.columns),
+            ignore_row_order=True,
+            ignore_nullable=True,
+        )
+
+    def test_incremental_with_existing_target(self, spark_session):
+        """Incremental load against an existing target: only changed records are returned,
+        delete_flag is absent, and SCD2 history is correct."""
+        day1 = spark_session.createDataFrame(
+            [
+                {
+                    "employee_id": 100,
+                    "name": "Alice",
+                    "city": "Amsterdam",
+                    "snapshot_date": datetime(2022, 1, 1),
+                },
+                {
+                    "employee_id": 200,
+                    "name": "Bob",
+                    "city": "London",
+                    "snapshot_date": datetime(2022, 1, 1),
+                },
+            ]
+        )
+        day2 = spark_session.createDataFrame(
+            [
+                {
+                    "employee_id": 200,
+                    "name": "Bob",
+                    "city": "Paris",
+                    "snapshot_date": datetime(2022, 1, 2),
+                },
+            ]
+        )
+
+        scd = SCD2Loader()
+        target = scd.slowly_changing_dimension(
+            df_src=day1, business_keys="employee_id", source_type=SourceType.INCREMENTAL
+        )
+        output = scd.slowly_changing_dimension(
+            df_src=day1.union(day2),
+            df_tgt=target,
+            business_keys="employee_id",
+            source_type=SourceType.INCREMENTAL,
+        )
+
+        assert "delete_flag" not in output.columns
+
+        expected = spark_session.createDataFrame(
+            [
+                {
+                    "employee_id": 200,
+                    "name": "Bob",
+                    "city": "London",
+                    "valid_from": datetime(2022, 1, 1),
+                    "valid_until": datetime(2022, 1, 2),
+                    "active_flag": False,
+                    "upsert_flag": "U",
+                },
+                {
+                    "employee_id": 200,
+                    "name": "Bob",
+                    "city": "Paris",
+                    "valid_from": datetime(2022, 1, 2),
+                    "valid_until": datetime(9999, 12, 31),
+                    "active_flag": True,
+                    "upsert_flag": "I",
+                },
+            ]
+        )
+        assert_df_equality(
+            expected,
+            output.select(expected.columns),
+            ignore_row_order=True,
+            ignore_nullable=True,
+        )

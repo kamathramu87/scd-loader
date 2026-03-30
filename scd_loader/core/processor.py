@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import pyspark.sql.functions as f
 from pyspark.sql.window import Window
 
+from scd_loader.core.config import COL_DELETED
 from scd_loader.core.validator import SCD2Validator
 from scd_loader.services.data_service import DataService
 from scd_loader.services.hash_service import HashService
@@ -94,8 +96,11 @@ class SCD2Processor:
             config.date_column
         )
 
-        # Process date windows and deletions
-        df_with_deletions = DataService.process_deletions(df_distinct, config)
+        # Process date windows and deletions (full snapshot only)
+        if config.source_type == "full":
+            df_with_deletions = DataService.process_deletions(df_distinct, config)
+        else:
+            df_with_deletions = df_distinct.withColumn(COL_DELETED, f.lit(False))
 
         # Apply hash transformations
         df_hashed = HashService.apply_hash_transformations(

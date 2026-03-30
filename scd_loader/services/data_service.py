@@ -154,10 +154,6 @@ class DataService:
                 f.coalesce(df[COL_NEXT_CHANGE], f.lit(config.open_end_date)),
             )
             .withColumn(
-                config.scd_columns.delete_flag,
-                f.coalesce(df[COL_DELETE_FLAG], f.lit(False)),
-            )
-            .withColumn(
                 config.scd_columns.active_flag,
                 f.when(
                     (f.col(config.scd_columns.valid_until).isNull())
@@ -170,6 +166,12 @@ class DataService:
                 f.when(df[COL_ORIG_VALID_FROM].isNull(), "I").otherwise("U"),
             )
         )
+
+        if config.source_type == "full":
+            df_with_support = df_with_support.withColumn(
+                config.scd_columns.delete_flag,
+                f.coalesce(df_with_support[COL_DELETE_FLAG], f.lit(False)),
+            )
 
         if config.enable_latest_record_flag:
             df_with_support = DataService._add_latest_record_flag(
@@ -303,12 +305,16 @@ class DataService:
             ]
         ]
 
-        # Build SCD2 column list — exclude latest_record_flag when feature is disabled
+        # Build SCD2 column list — exclude latest_record_flag when feature is disabled,
+        # and exclude delete_flag for incremental sources
         scd_output_columns = [
             col
             for col in config.scd_columns.column_list()
-            if config.enable_latest_record_flag
-            or col != config.scd_columns.latest_record_flag
+            if (
+                config.enable_latest_record_flag
+                or col != config.scd_columns.latest_record_flag
+            )
+            and (config.source_type == "full" or col != config.scd_columns.delete_flag)
         ]
 
         target_columns = source_columns + scd_output_columns + [UPSERT_FLAG_COLUMN]

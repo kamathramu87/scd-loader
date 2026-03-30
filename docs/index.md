@@ -11,7 +11,7 @@ pip install scd-loader
 ## Quick Start
 
 ```python
-from scd_loader import SCD2Loader, SCD2ColumnNames
+from scd_loader import SCD2Loader, SCD2ColumnNames, SourceType
 
 loader = SCD2Loader(spark_session=spark)
 
@@ -33,6 +33,32 @@ result_df = loader.slowly_changing_dimension(
     business_keys=["employee_id"],
     date_column="snapshot_date",
     df_tgt=target_df,
+)
+```
+
+### Source Type
+
+Use `SourceType.FULL` (default) when the source is a complete daily/periodic snapshot — records absent from the latest snapshot are detected as deletions and `delete_flag` is included in the output:
+
+```python
+from scd_loader import SCD2Loader, SourceType
+
+result_df = loader.slowly_changing_dimension(
+    df_src=source_df,
+    business_keys=["employee_id"],
+    date_column="snapshot_date",
+    source_type=SourceType.FULL,  # default
+)
+```
+
+Use `SourceType.INCREMENTAL` when the source only contains new or changed records — deletion detection is skipped and `delete_flag` is omitted from the output:
+
+```python
+result_df = loader.slowly_changing_dimension(
+    df_src=source_df,
+    business_keys=["employee_id"],
+    date_column="snapshot_date",
+    source_type=SourceType.INCREMENTAL,
 )
 ```
 
@@ -70,6 +96,7 @@ result_df = loader.slowly_changing_dimension(
 | `open_end_date` | `datetime \| None` | `9999-12-31` | `valid_until` value for currently active records |
 | `scd_columns` | `SCD2ColumnNames \| dict[str, str] \| None` | `None` | Override default SCD2 output column names |
 | `enable_latest_record_flag` | `bool` | `False` | When `True`, adds a `latest_record_flag` column marking the most recent record per business key |
+| `source_type` | `SourceType` | `SourceType.FULL` | `FULL` for complete snapshots (deletion detection enabled, `delete_flag` included). `INCREMENTAL` for feeds that only contain new/changed records (deletion detection skipped, `delete_flag` omitted) |
 
 ## Output Columns
 
@@ -80,7 +107,7 @@ The resulting DataFrame includes all source columns plus:
 | `valid_from` | `valid_from` | Date when the record became active |
 | `valid_until` | `valid_until` | Date when the record was superseded (`9999-12-31` if still active) |
 | `active_flag` | `active_flag` | `True` for the currently active version of a record |
-| `delete_flag` | `delete_flag` | `True` if the record was deleted in the source |
+| `delete_flag` | `delete_flag` | `True` if the record was deleted in the source. Only present when `source_type=SourceType.FULL` |
 | `row_hash` | `row_hash` | SHA-256 hash of non-key columns (excluding `ignore_columns`) |
 | `upsert_flag` | `upsert_flag` | `I` for inserts, `U` for updates |
 | `latest_record_flag` | `latest_record_flag` | `True` for the most recent record per business key. Only present when `enable_latest_record_flag=True` |
