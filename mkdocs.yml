@@ -18,13 +18,14 @@ plugins:
 nav:
   - Home: index.md
   - API Reference:
-      - SCD2Loader: api/scd2_loader.md
-      - Core:
-          - Config: api/core/config.md
-          - Processor: api/core/processor.md
-          - Validator: api/core/validator.md
-      - Services:
-          - DataService: api/services/data_service.md
-          - HashService: api/services/hash_service.md
-          - DateService: api/services/date_service.md
+      - Strategies:
+          - SCD2 (History):
+              - Loader: api/scd2/loader.md
+              - Config: api/scd2/config.md
+              - Processor: api/scd2/processor.md
+              - Validator: api/scd2/validator.md
+              - Services:
+                  - DataService: api/scd2/services/data_service.md
+                  - HashService: api/scd2/services/hash_service.md
+                  - DateService: api/scd2/services/date_service.md
       - Exceptions: api/exceptions.md
