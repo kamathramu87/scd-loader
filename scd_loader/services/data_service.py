@@ -258,15 +258,18 @@ class DataService:
         )
 
         # Create deletion periods
+        date_col_r = f"{config.date_column}_r"
         df_expanded = (
-            df_with_dates.drop("next_date_available", COL_DATE_LEAD)
+            df_with_dates.drop("next_date_available", COL_DATE_LEAD, date_col_r)
             .withColumn(COL_DELETED, f.lit(False))
             .union(
                 df_with_dates.where(f.col(COL_DELETED))
-                .drop(config.date_column, COL_DATE_LEAD)
+                .drop(config.date_column, COL_DATE_LEAD, date_col_r)
                 .withColumnRenamed("next_date_available", config.date_column)
                 .select(
-                    df_with_dates.drop("next_date_available", COL_DATE_LEAD).columns
+                    df_with_dates.drop(
+                        "next_date_available", COL_DATE_LEAD, date_col_r
+                    ).columns
                 )
             )
         )
@@ -296,6 +299,7 @@ class DataService:
                 COL_NEXT_CHANGE,
                 COL_DELETED,
                 COL_DELETE_FLAG,
+                UPSERT_FLAG_COLUMN,
             ]
         ]
 
