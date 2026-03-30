@@ -52,7 +52,9 @@ class SCD2Logger:
         logger.info("DataFrame info: %s", log_data)
 
     @staticmethod
-    def log_processing_step(logger: logging.Logger, step: str, status: str = "started", **kwargs: Any) -> None:
+    def log_processing_step(
+        logger: logging.Logger, step: str, status: str = "started", **kwargs: Any
+    ) -> None:
         """Log processing step information.
 
         Args:
