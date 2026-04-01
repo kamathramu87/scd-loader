@@ -4,9 +4,19 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - "loadx/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
   push:
     branches:
       - main
+    paths:
+      - "loadx/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - "uv.lock"
 
 jobs:
   test:

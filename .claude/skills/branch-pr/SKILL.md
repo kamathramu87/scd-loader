@@ -52,8 +52,7 @@ Examples:
 
 5. **Push branch to remote** — run `git push -u origin <branch-name>`.
 
-6. **Create draft PR** against `main` using `gh pr create` with:
-   - `--draft` flag (so it's not accidentally merged)
+6. **Create PR** against `main` using `gh pr create` with:
    - A title derived from the branch name or the user-provided title
    - A body with the template below
    - Base branch: `main`
@@ -72,7 +71,7 @@ PR body template:
 
 7. **Enable auto-merge** — after the PR is created, run:
    `gh pr merge <PR-number> --auto --squash`
-   This queues the PR to merge automatically once all required checks pass and the PR is marked ready (not draft). Inform the user that auto-merge is set.
+   This queues the PR to merge automatically once all required CI checks pass. Inform the user that auto-merge is set.
 
 8. **Print the PR URL** so the user can open it.
 
