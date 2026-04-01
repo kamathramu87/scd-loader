@@ -49,9 +49,11 @@ Examples:
 
 3. **Create and switch to branch** — run `git checkout -b <branch-name>` from the updated `main`.
 
-3. **Push branch to remote** — run `git push -u origin <branch-name>`.
+4. **Run quality checks** — run `make check` before pushing. If it fails, stop and show the output to the user. Do not push until checks pass.
 
-4. **Create draft PR** against `main` using `gh pr create` with:
+5. **Push branch to remote** — run `git push -u origin <branch-name>`.
+
+6. **Create draft PR** against `main` using `gh pr create` with:
    - `--draft` flag (so it's not accidentally merged)
    - A title derived from the branch name or the user-provided title
    - A body with the template below
@@ -69,7 +71,7 @@ PR body template:
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
-5. **Print the PR URL** so the user can open it.
+7. **Print the PR URL** so the user can open it.
 
 ## Notes
 - Never force-push or use destructive git commands.
