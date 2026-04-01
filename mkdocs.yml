@@ -22,10 +22,5 @@ nav:
           - SCD2 (History):
               - Loader: api/scd2/loader.md
               - Config: api/scd2/config.md
-              - Processor: api/scd2/processor.md
-              - Validator: api/scd2/validator.md
-              - Services:
-                  - DataService: api/scd2/services/data_service.md
-                  - HashService: api/scd2/services/hash_service.md
-                  - DateService: api/scd2/services/date_service.md
+              - Transforms: api/scd2/transforms.md
       - Exceptions: api/exceptions.md

@@ -4,12 +4,11 @@ import pytest
 from datetime import datetime
 from unittest.mock import MagicMock
 
+from loadx.scd2 import transforms
 from loadx.scd2.config import SCD2Config, SCD2ColumnNames
-from loadx.scd2.validator import SCD2Validator
 from loadx.exceptions import (
     BusinessKeysEmptyError,
     EmptyDataExceptionError,
-    ConfigurationError,
 )
 from loadx.utils.spark_factory import SparkSessionFactory
 
@@ -96,7 +95,7 @@ class TestSCD2ColumnNames:
         assert set(field_list) == set(expected_fields)
 
 
-class TestSCD2Validator:
+class TestValidation:
     """Test cases for SCD2Validator class."""
 
     def test_validate_inputs_empty_business_keys(self):
@@ -106,7 +105,7 @@ class TestSCD2Validator:
         df_mock.columns = ["id", "name", "snapshot_date"]
 
         # empty business_keys means no column check is performed — should not raise
-        SCD2Validator.validate_inputs(df_mock, [], "snapshot_date")
+        transforms.validate_inputs(df_mock, [], "snapshot_date")
 
     def test_validate_inputs_empty_date_column(self):
         """Test validation raises when date column is missing from DataFrame."""
@@ -115,7 +114,7 @@ class TestSCD2Validator:
         df_mock.columns = ["id", "name", "snapshot_date"]
 
         with pytest.raises(ValueError, match="Missing required columns"):
-            SCD2Validator.validate_inputs(df_mock, ["id"], "")
+            transforms.validate_inputs(df_mock, ["id"], "")
 
     def test_validate_inputs_empty_dataframe(self):
         """Test validation with empty DataFrame."""
@@ -123,7 +122,7 @@ class TestSCD2Validator:
         df_mock.isEmpty.return_value = True
 
         with pytest.raises(EmptyDataExceptionError):
-            SCD2Validator.validate_inputs(df_mock, ["id"], "snapshot_date")
+            transforms.validate_inputs(df_mock, ["id"], "snapshot_date")
 
     def test_validate_inputs_missing_columns(self):
         """Test validation with missing required columns."""
@@ -132,7 +131,7 @@ class TestSCD2Validator:
         df_mock.columns = ["id", "name"]  # missing snapshot_date
 
         with pytest.raises(ValueError, match="Missing required columns"):
-            SCD2Validator.validate_inputs(df_mock, ["id"], "snapshot_date")
+            transforms.validate_inputs(df_mock, ["id"], "snapshot_date")
 
     def test_validate_inputs_success(self):
         """Test successful validation."""
@@ -141,7 +140,7 @@ class TestSCD2Validator:
         df_mock.columns = ["id", "name", "snapshot_date"]
 
         # Should not raise any exception
-        SCD2Validator.validate_inputs(df_mock, ["id"], "snapshot_date")
+        transforms.validate_inputs(df_mock, ["id"], "snapshot_date")
 
     def test_validate_config_empty_business_keys(self):
         """Test config validation with empty business keys."""
@@ -149,7 +148,7 @@ class TestSCD2Validator:
         config.business_keys = []
 
         with pytest.raises(BusinessKeysEmptyError):
-            SCD2Validator.validate_config(config)
+            transforms.validate_config(config)
 
     def test_validate_config_empty_date_column(self):
         """Test config validation with empty date column."""
@@ -158,7 +157,7 @@ class TestSCD2Validator:
         config.date_column = ""
 
         with pytest.raises(ValueError, match="date_column cannot be empty"):
-            SCD2Validator.validate_config(config)
+            transforms.validate_config(config)
 
     def test_validate_config_valid(self):
         """Test config validation passes with valid config."""
@@ -167,7 +166,7 @@ class TestSCD2Validator:
         config.date_column = "snapshot_date"
 
         # Should not raise
-        SCD2Validator.validate_config(config)
+        transforms.validate_config(config)
 
 
 class TestSparkSessionFactory:
