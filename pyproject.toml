@@ -1,6 +1,6 @@
 [project]
 name = "loadx"
-version = "0.1.0"
+version = "0.1.1"
 description = "PySpark library for Slowly Changing Dimension Type 2 (SCD2) transformations"
 authors = [{ name = "Ramu Kamath", email = "ramu.kamath.1988@gmail.com" }]
 requires-python = ">=3.9,<4"
