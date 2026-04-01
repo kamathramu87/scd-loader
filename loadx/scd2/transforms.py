@@ -50,7 +50,9 @@ def validate_inputs(
 ) -> None:
     if df_src.isEmpty():
         raise EmptyDataExceptionError
-    missing = [col for col in [*business_keys, date_column] if col not in df_src.columns]
+    missing = [
+        col for col in [*business_keys, date_column] if col not in df_src.columns
+    ]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
@@ -61,7 +63,9 @@ def validate_data_freshness(
     tgt_max = _get_max_date(df_tgt, config.scd_columns.valid_from)
     src_max = _get_max_date(df_src, config.date_column)
     if src_max < tgt_max:
-        logger.error("Source data (%s) is older than target data (%s)", src_max, tgt_max)
+        logger.error(
+            "Source data (%s) is older than target data (%s)", src_max, tgt_max
+        )
         raise OldDataExceptionError
 
 
@@ -124,7 +128,9 @@ def filter_for_changes(
     df: DataFrame, config: SCD2Config, window: WindowSpec
 ) -> DataFrame:
     return (
-        df.withColumn(COL_ROW_HASH_CHANGED_LAG, f.lag(COL_ROW_HASH_CHANGED).over(window))
+        df.withColumn(
+            COL_ROW_HASH_CHANGED_LAG, f.lag(COL_ROW_HASH_CHANGED).over(window)
+        )
         .filter(
             f.col(COL_ROW_HASH_CHANGED_LAG).isNull()
             | (f.col(COL_ROW_HASH_CHANGED_LAG) != f.col(COL_ROW_HASH_CHANGED))
@@ -161,23 +167,24 @@ def process_deletions(df: DataFrame, config: SCD2Config) -> DataFrame:
             COL_DELETED,
             f.when(
                 (f.col("next_date_available") != f.col(COL_DATE_LEAD))
-                | (
-                    f.col(COL_DATE_LEAD).isNull()
-                    & (df[date_col] != max_snapshot_date)
-                ),
+                | (f.col(COL_DATE_LEAD).isNull() & (df[date_col] != max_snapshot_date)),
                 True,
             ).otherwise(False),
         )
     )
 
-    base_cols = df_flagged.drop("next_date_available", COL_DATE_LEAD, date_col_r).columns
-    return df_flagged.drop("next_date_available", COL_DATE_LEAD, date_col_r).withColumn(
-        COL_DELETED, f.lit(False)
-    ).union(
-        df_flagged.where(f.col(COL_DELETED))
-        .drop(date_col, COL_DATE_LEAD, date_col_r)
-        .withColumnRenamed("next_date_available", date_col)
-        .select(base_cols)
+    base_cols = df_flagged.drop(
+        "next_date_available", COL_DATE_LEAD, date_col_r
+    ).columns
+    return (
+        df_flagged.drop("next_date_available", COL_DATE_LEAD, date_col_r)
+        .withColumn(COL_DELETED, f.lit(False))
+        .union(
+            df_flagged.where(f.col(COL_DELETED))
+            .drop(date_col, COL_DATE_LEAD, date_col_r)
+            .withColumnRenamed("next_date_available", date_col)
+            .select(base_cols)
+        )
     )
 
 
@@ -186,7 +193,9 @@ def add_support_columns(df: DataFrame, config: SCD2Config) -> DataFrame:
         df.filter(~f.col(COL_DELETED))
         .withColumn(
             config.scd_columns.valid_from,
-            f.coalesce(df[COL_ORIG_VALID_FROM], f.col(config.date_column).cast("timestamp")),
+            f.coalesce(
+                df[COL_ORIG_VALID_FROM], f.col(config.date_column).cast("timestamp")
+            ),
         )
         .withColumn(
             config.date_column,
@@ -247,11 +256,17 @@ def finalize_output(df: DataFrame, config: SCD2Config) -> DataFrame:
     scd_output = [
         c
         for c in config.scd_columns.column_list()
-        if (config.enable_latest_record_flag or c != config.scd_columns.latest_record_flag)
+        if (
+            config.enable_latest_record_flag
+            or c != config.scd_columns.latest_record_flag
+        )
         and (config.source_type == "full" or c != config.scd_columns.delete_flag)
     ]
 
     return df.filter(
-        (f.coalesce(df[COL_ORIG_VALID_UNTIL], f.lit(config.open_end_date)) != df[config.scd_columns.valid_until])
+        (
+            f.coalesce(df[COL_ORIG_VALID_UNTIL], f.lit(config.open_end_date))
+            != df[config.scd_columns.valid_until]
+        )
         | df[COL_ORIG_VALID_FROM].isNull()
     ).select(source_columns + scd_output + [UPSERT_FLAG_COLUMN])
