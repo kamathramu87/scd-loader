@@ -3,13 +3,17 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import pyspark.sql.functions as f
+from pyspark.sql.window import Window
+
+from loadx.scd2 import transforms as t
 from loadx.scd2.config import (
+    COL_DELETED,
     DEFAULT_DATE_COLUMN,
     OPEN_END_DATE,
     SCD2Config,
     SourceType,
 )
-from loadx.scd2.processor import SCD2Processor
 from loadx.utils.spark_factory import SparkSessionFactory
 
 if TYPE_CHECKING:
@@ -25,19 +29,12 @@ logger = logging.getLogger(__name__)
 class SCD2Loader:
     """Slowly Changing Dimension Type 2 loader for PySpark DataFrames.
 
-    This class provides a clean interface for SCD2 processing with improved
-    separation of concerns and better testability.
+    Tracks historical changes using valid_from/valid_until date ranges,
+    hash-based change detection, and active/delete flags.
     """
 
     def __init__(self, spark_session: SparkSession | None = None) -> None:
-        """Initialize the SCD2 loader with an optional Spark session.
-
-        Args:
-            spark_session: Optional SparkSession instance. If None, creates a new one.
-        """
         self.spark = SparkSessionFactory.get_or_create_session(spark_session)
-        self.processor = SCD2Processor()
-        logger.info("SCD2Loader initialized successfully")
 
     def slowly_changing_dimension(
         self,
@@ -53,9 +50,6 @@ class SCD2Loader:
         source_type: SourceType = SourceType.FULL,
     ) -> DataFrame:
         """Process slowly changing dimension type 2 transformation.
-
-        This method implements SCD2 to track historical changes in data. It supports
-        both full initial loads and incremental loads.
 
         Args:
             df_src: Source DataFrame containing the data to process
@@ -85,7 +79,6 @@ class SCD2Loader:
             OldDataExceptionError: When source data is older than target data
             ValueError: When invalid parameters are provided
         """
-        # Create configuration using factory method
         config = SCD2Config.create(
             business_keys=business_keys,
             date_column=date_column,
@@ -96,6 +89,38 @@ class SCD2Loader:
             enable_latest_record_flag=enable_latest_record_flag,
             source_type=source_type,
         )
+        return self._process(df_src, df_tgt, config)
 
-        # Process the data using the processor
-        return self.processor.process(df_src, df_tgt, config)
+    def _process(
+        self, df_src: DataFrame, df_tgt: DataFrame | None, config: SCD2Config
+    ) -> DataFrame:
+        t.validate_config(config)
+        t.validate_inputs(df_src, config.business_keys, config.date_column)
+
+        source_columns = self._source_columns(df_src, config)
+
+        df = t.prepare_source_data(df_src, config)
+
+        if df_tgt and not df_tgt.isEmpty():
+            df = t.handle_incremental_load(df, df_tgt, config)
+
+        window = Window.partitionBy(config.business_keys).orderBy(config.date_column)
+
+        df = df.distinct()
+        df = (
+            t.process_deletions(df, config)
+            if config.source_type == "full"
+            else df.withColumn(COL_DELETED, f.lit(False))
+        )
+        df = t.apply_hash_columns(df, config, source_columns)
+        df = t.filter_for_changes(df, config, window)
+        df = t.add_support_columns(df, config)
+        return t.finalize_output(df, config)
+
+    @staticmethod
+    def _source_columns(df_src: DataFrame, config: SCD2Config) -> list[str]:
+        df = df_src.drop(*config.non_copy_fields) if config.non_copy_fields else df_src
+        cols = df.columns.copy()
+        if config.date_column in cols:
+            cols.remove(config.date_column)
+        return cols

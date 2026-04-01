@@ -39,14 +39,9 @@ loadx/
 ├── exceptions.py            # Custom exception hierarchy
 ├── scd2/                    # SCD2 (history) strategy
 │   ├── __init__.py          # exports SCD2Loader
-│   ├── loader.py            # Public API: SCD2Loader class
+│   ├── loader.py            # Public API: SCD2Loader + pipeline orchestration
 │   ├── config.py            # SCD2Config, SCD2ColumnNames dataclasses
-│   ├── processor.py         # SCD2Processor — orchestrates the pipeline
-│   ├── validator.py         # SCD2Validator — static validation methods
-│   └── services/
-│       ├── data_service.py  # DataFrame transformations
-│       ├── hash_service.py  # SHA-256 change detection hashing
-│       └── date_service.py  # Date utilities
+│   └── transforms.py        # All pure functions: validation, hashing, data transforms
 ├── scd1/                    # Future: SCD1 (merge/upsert) strategy
 │   └── __init__.py          # stub with docstring only
 ├── overwrite/               # Future: overwrite strategy
@@ -60,16 +55,17 @@ loadx/
 
 ```
 SCD2Loader.slowly_changing_dimension()
-  → SCD2Config.create()          # Build config from parameters
-  → SCD2Validator                # Validate keys, columns, data freshness
-  → SCD2Processor.process()
-      → DataService.prepare_source_data()        # Add placeholder SCD2 columns
-      → DataService.handle_incremental_load()    # Merge with target (if exists)
-      → HashService.add_hash_columns()           # SHA-256 hashes for change detection
-      → DataService.filter_for_changes()         # Window-based lag comparison
-      → DataService.process_deletions()          # Handle records deleted between snapshots
-      → DataService.add_support_columns()        # valid_from, valid_until, active_flag
-      → DataService.finalize_output()            # Select final columns, add upsert_flag
+  → SCD2Config.create()               # Build config from parameters
+  → SCD2Loader._process()
+      → transforms.validate_config()          # Validate keys, columns
+      → transforms.validate_inputs()          # Validate DataFrame, columns
+      → transforms.prepare_source_data()      # Add placeholder SCD2 columns
+      → transforms.handle_incremental_load()  # Merge with target (if exists)
+      → transforms.process_deletions()        # Handle records deleted between snapshots
+      → transforms.apply_hash_columns()       # SHA-256 hashes for change detection
+      → transforms.filter_for_changes()       # Window-based lag comparison
+      → transforms.add_support_columns()      # valid_from, valid_until, active_flag
+      → transforms.finalize_output()          # Select final columns, add upsert_flag
 ```
 
 ### Key Design Decisions
