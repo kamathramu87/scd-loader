@@ -16,10 +16,11 @@ $ARGUMENTS is optional.
 - Otherwise, the PR title is derived from the description.
 
 **If $ARGUMENTS is empty:** infer the description automatically from the current git changes:
-1. Run `git diff --stat HEAD` and `git status --short` to understand what has changed.
+1. Run `git diff --stat HEAD` and `git status --short` to understand what has changed (including untracked files).
 2. Run `git diff HEAD` for a brief look at the actual diff content (first 100 lines is enough).
-3. Summarize the changes into a short description (3–6 words) suitable for a branch name.
-4. Use that as the description going forward.
+3. Also check `git stash list` in case changes were already stashed.
+4. Summarize the changes into a short description (3–6 words) suitable for a branch name.
+5. Use that as the description going forward.
 
 ## Branch naming
 
@@ -39,9 +40,14 @@ Examples:
 
 ## Steps
 
-1. **Verify working tree** — run `git status` to check for uncommitted changes. If there are staged or unstaged changes, inform the user and ask whether to commit them first before creating the branch.
+1. **Stash uncommitted changes** — run `git status` to check for uncommitted changes. If there are staged or unstaged changes, stash them with `git stash` before switching branches. Remind the user to `git stash pop` after the branch is created if needed.
 
-2. **Create and switch to branch** — run `git checkout -b <branch-name>` from the current HEAD.
+2. **Sync main with remote** — run the following in order:
+   - `git checkout main`
+   - `git fetch origin`
+   - `git merge --ff-only origin/main` to fast-forward local main to remote. If fast-forward fails (diverged history), stop and tell the user to resolve manually.
+
+3. **Create and switch to branch** — run `git checkout -b <branch-name>` from the updated `main`.
 
 3. **Push branch to remote** — run `git push -u origin <branch-name>`.
 
