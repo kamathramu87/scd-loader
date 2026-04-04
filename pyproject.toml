@@ -30,6 +30,7 @@ dev = [
     "deptry==0.23.0",
     "mypy>=1.5.0,<2",
     "go-task-bin>=3.49.1",
+    "delta-spark>=3.0.0,<4",
 ]
 docs = [
     "mkdocs>=1.6.1",

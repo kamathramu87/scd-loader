@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
+import glob
+import os
+
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (
     BooleanType,
@@ -14,15 +17,46 @@ from pyspark.sql.types import (
 )
 
 
-@pytest.fixture(scope="session")
+def _find_delta_jars() -> str:
+    """Locate Delta Lake JARs in the local Ivy2 cache."""
+    ivy2 = os.path.join(os.path.expanduser("~"), ".ivy2", "cache", "io.delta")
+    patterns = [
+        os.path.join(ivy2, "delta-spark_2.12", "jars", "delta-spark_2.12-*.jar"),
+        os.path.join(ivy2, "delta-storage", "jars", "delta-storage-*.jar"),
+    ]
+    jars = [j for pattern in patterns for j in glob.glob(pattern)]
+    if not jars:
+        raise FileNotFoundError(
+            "Delta Lake JARs not found in ~/.ivy2/cache/io.delta. "
+            "Run `uv sync` and then start a Spark session once with "
+            "`configure_spark_with_delta_pip` to populate the cache."
+        )
+    return ",".join(jars)
+
+
+_DELTA_JARS = _find_delta_jars()
+
+
+@pytest.fixture(scope="session", autouse=True)
 def spark():
-    spark = (
+    """Session-scoped Delta-enabled SparkSession.
+
+    ``autouse=True`` ensures this fixture initialises before any test (including
+    tests that call ``SparkSession.getOrCreate()`` directly), so the Delta
+    extensions and catalog are always registered on the singleton session.
+    """
+    return (
         SparkSession.builder.master("local[1]")
         .config("spark.port.maxRetries", "1000")
         .config("spark.sql.shuffle.partitions", "1")
+        .config("spark.jars", _DELTA_JARS)
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config(
+            "spark.sql.catalog.spark_catalog",
+            "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+        )
         .getOrCreate()
     )
-    return spark
 
 
 @pytest.fixture(scope="session")
@@ -62,14 +96,7 @@ def date_attribute():
 
 
 @pytest.fixture(scope="session")
-def expected_data_null_end_date():
-    spark = (
-        SparkSession.builder.master("local[1]")
-        .config("spark.port.maxRetries", "1000")
-        .config("spark.sql.shuffle.partitions", "1")
-        .getOrCreate()
-    )
-
+def expected_data_null_end_date(spark):
     target_schema = StructType(
         [
             StructField("country", StringType(), True),
@@ -114,19 +141,11 @@ def expected_data_null_end_date():
             "upsert_flag": "I",
         },
     ]
-    df = spark.createDataFrame(data_expected, schema=target_schema)
-    return df
+    return spark.createDataFrame(data_expected, schema=target_schema)
 
 
 @pytest.fixture(scope="session")
-def expected_data_open_end_date():
-    spark = (
-        SparkSession.builder.master("local[1]")
-        .config("spark.port.maxRetries", "1000")
-        .config("spark.sql.shuffle.partitions", "1")
-        .getOrCreate()
-    )
-
+def expected_data_open_end_date(spark):
     target_schema = StructType(
         [
             StructField("country", StringType(), True),
@@ -171,19 +190,11 @@ def expected_data_open_end_date():
             "upsert_flag": "I",
         },
     ]
-    df = spark.createDataFrame(data_expected, schema=target_schema)
-    return df
+    return spark.createDataFrame(data_expected, schema=target_schema)
 
 
 @pytest.fixture(scope="session")
-def expected_data_catchup_one_day():
-    spark = (
-        SparkSession.builder.master("local[1]")
-        .config("spark.port.maxRetries", "1000")
-        .config("spark.sql.shuffle.partitions", "1")
-        .getOrCreate()
-    )
-
+def expected_data_catchup_one_day(spark):
     target_schema = StructType(
         [
             StructField("country", StringType(), True),
@@ -254,5 +265,4 @@ def expected_data_catchup_one_day():
             "upsert_flag": "I",
         },
     ]
-    df = spark.createDataFrame(data_expected, schema=target_schema)
-    return df
+    return spark.createDataFrame(data_expected, schema=target_schema)
