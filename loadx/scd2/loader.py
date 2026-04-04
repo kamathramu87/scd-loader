@@ -42,6 +42,7 @@ class SCD2Loader:
         business_keys: list[str] | str,
         date_column: str = DEFAULT_DATE_COLUMN,
         df_tgt: DataFrame | None = None,
+        target_table: str | None = None,
         ignore_columns: list[str] | None = None,
         non_copy_fields: list[str] | None = None,
         open_end_date: datetime | None = OPEN_END_DATE,
@@ -56,6 +57,11 @@ class SCD2Loader:
             business_keys: List of columns that constitute the business key
             date_column: Column name containing snapshot dates
             df_tgt: Optional target DataFrame for incremental loads
+            target_table: Optional fully-qualified table name (e.g. ``"db.schema.table"``).
+                When supplied and ``df_tgt`` is ``None``, the table is read via
+                ``SparkSession.table()`` and filtered to active records only
+                (``active_flag = True``) before being used as the target DataFrame.
+                Ignored when ``df_tgt`` is already provided.
             ignore_columns: Columns to ignore when calculating row hashes
             non_copy_fields: Fields to exclude from source to target
             open_end_date: Date to use for active records (default: 9999-12-31)
@@ -89,6 +95,13 @@ class SCD2Loader:
             enable_latest_record_flag=enable_latest_record_flag,
             source_type=source_type,
         )
+
+        if df_tgt is None and target_table is not None:
+            logger.info("Reading active records from target table: %s", target_table)
+            df_tgt = self.spark.table(target_table).filter(
+                f.col(config.scd_columns.active_flag) == True  # noqa: E712
+            )
+
         return self._process(df_src, df_tgt, config)
 
     def _process(

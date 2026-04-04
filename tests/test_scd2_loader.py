@@ -377,3 +377,59 @@ class TestSCD2IncrementalSourceType:
             ignore_row_order=True,
             ignore_nullable=True,
         )
+
+    def test_target_table_reads_active_records(self, spark_session):
+        """target_table param reads table and filters to active records only."""
+        day1 = spark_session.createDataFrame(
+            [
+                {
+                    "employee_id": 100,
+                    "name": "Alice",
+                    "city": "Amsterdam",
+                    "snapshot_date": datetime(2022, 1, 1),
+                },
+                {
+                    "employee_id": 200,
+                    "name": "Bob",
+                    "city": "London",
+                    "snapshot_date": datetime(2022, 1, 1),
+                },
+            ]
+        )
+        day2 = spark_session.createDataFrame(
+            [
+                {
+                    "employee_id": 200,
+                    "name": "Bob",
+                    "city": "Paris",
+                    "snapshot_date": datetime(2022, 1, 2),
+                },
+            ]
+        )
+
+        scd = SCD2Loader()
+        target = scd.slowly_changing_dimension(
+            df_src=day1, business_keys="employee_id", source_type=SourceType.INCREMENTAL
+        )
+        # Register the full target (active + inactive rows) as a temp view
+        target.createOrReplaceTempView("test_target_table")
+
+        output_via_table = scd.slowly_changing_dimension(
+            df_src=day1.union(day2),
+            target_table="test_target_table",
+            business_keys="employee_id",
+            source_type=SourceType.INCREMENTAL,
+        )
+        output_via_df = scd.slowly_changing_dimension(
+            df_src=day1.union(day2),
+            df_tgt=target.filter("active_flag = true"),
+            business_keys="employee_id",
+            source_type=SourceType.INCREMENTAL,
+        )
+
+        assert_df_equality(
+            output_via_df,
+            output_via_table,
+            ignore_row_order=True,
+            ignore_nullable=True,
+        )
